@@ -7,6 +7,7 @@ const { loadConfig, saveConfig } = require('./config');
 const {
   createWindow,
   moveWindow,
+  moveToDisplay,
   toggleCompact,
   toggleVisible,
   beginHoldInteract,
@@ -24,7 +25,7 @@ const {
 } = require('./window');
 const { registerHotkeys, unregisterHotkeys, BINDINGS, bindingsWith, formatAccelerator } = require('./hotkeys');
 const { captureScreenshot } = require('./capture');
-const { selectedDisplays, updateCaptureOptions, captureDisplayBatch } = require('./capture-options');
+const { validateCaptureOptions, captureWindowDisplay } = require('./capture-options');
 const { selectRegion } = require('./selector');
 const { ensureBackend, stopBackend } = require('./backend');
 const { startCommandKeyMonitor } = require('./command-key');
@@ -178,16 +179,16 @@ async function attachScreenshot({ interactive }) {
   const wasVisible = await hideWindowForCapture();
   try {
     const displays = screen.getAllDisplays();
-    const images = await captureDisplayBatch({
+    const image = await captureWindowDisplay({
       displays,
-      selected: selectedDisplays(config, displays, screen.getPrimaryDisplay()),
+      display: runningDisplay(),
       interactive,
       selectRegion,
       captureScreenshot,
     });
-    if (!images.length) return;
+    if (!image) return;
     lastScreenshotTime = Date.now();
-    sendCapture({ images });
+    sendCapture(image);
   } catch (error) {
     const raw = String(error.message || error);
     // Unpackaged builds often report 'not-determined' even when the host app is
@@ -223,10 +224,13 @@ function hotkeySnapshot() {
   };
 }
 
+function runningDisplay() {
+  return win && !win.isDestroyed() ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+}
+
 function captureOptions() {
   const displays = screen.getAllDisplays();
-  const selected = selectedDisplays(config, displays, screen.getPrimaryDisplay());
-  return {mode:config.screenshotMode || 'area',displayIds:selected.map((display) => String(display.id)),displays:displays.map((d,i)=>({id:String(d.id),label:d.label || `显示器 ${i+1}`,width:d.bounds.width,height:d.bounds.height,scaleFactor:d.scaleFactor}))};
+  return {mode:config.screenshotMode || 'area',displayId:String(runningDisplay().id),displays:displays.map((d,i)=>({id:String(d.id),label:d.label || `显示器 ${i+1}`,width:d.bounds.width,height:d.bounds.height,scaleFactor:d.scaleFactor}))};
 }
 
 function registerIpc() {
@@ -260,9 +264,13 @@ function registerIpc() {
   });
   ipcMain.handle('cockpit:setCaptureOptions', (_event, patch) => {
     if(!patch || typeof patch !== 'object') throw new Error('Invalid capture settings');
-    updateCaptureOptions(config, patch, screen.getAllDisplays());
+    const displays = screen.getAllDisplays();
+    validateCaptureOptions(patch, displays);
+    if (patch.displayId !== undefined) moveToDisplay(win, displays.find((display) => String(display.id) === String(patch.displayId)));
+    if (patch.mode !== undefined) config.screenshotMode = patch.mode;
     const options = captureOptions();
-    const saved = saveConfig({screenshotMode:options.mode,captureDisplayIds:options.displayIds});
+    config.windowDisplayId = options.displayId;
+    const saved = saveConfig({screenshotMode:options.mode,windowDisplayId:options.displayId});
     return {...captureOptions(),saved};
   });
   ipcMain.handle('cockpit:openSettings', async (_event, section) => {
@@ -313,9 +321,22 @@ async function boot() {
   registerIpc();
   failedHotkeys = registerHotkeys(hotkeyHandlers(), currentBindings);
   win = createWindow(config, {
-    onMove: (bounds) => saveConfig({ windowBounds: bounds }),
+    onMove: (bounds) => {
+      config.windowDisplayId = String(runningDisplay().id);
+      saveConfig({ windowBounds: bounds, windowDisplayId: config.windowDisplayId });
+    },
     onDisplay: (patch) => saveConfig(patch),
   });
+  const handleRemovedDisplay = (_event, removed) => {
+    if (!win || win.isDestroyed()) return;
+    if (String(removed.id) === config.windowDisplayId) {
+      moveToDisplay(win, screen.getPrimaryDisplay());
+      config.windowDisplayId = String(runningDisplay().id);
+      saveConfig({windowDisplayId:config.windowDisplayId});
+    }
+  };
+  screen.on('display-removed', handleRemovedDisplay);
+  win.on('closed', () => screen.removeListener('display-removed', handleRemovedDisplay));
   stopCommandKeyMonitor = startCommandKeyMonitor((held) => {
     setInteractive(win, held, { restore: !held });
   });

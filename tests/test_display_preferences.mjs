@@ -7,13 +7,14 @@ const require = createRequire(import.meta.url);
 
 function windowModule(area = {x:0,y:24,width:1440,height:876}) {
   const sandbox = {module:{exports:{}}, __dirname:'/app/main', process,
-    require: name => name === 'electron' ? {app:{isPackaged:false},screen:{getDisplayMatching:()=>({workArea:area})}} : require(name)};
+    require: name => name === 'electron' ? {app:{isPackaged:false},screen:{getDisplayMatching:()=>({workArea:area})}} : name === './capture-options' ? require('../desktop/main/capture-options.js') : require(name)};
   vm.runInNewContext(fs.readFileSync(new URL('../desktop/main/window.js', import.meta.url),'utf8'),sandbox);
   let bounds = {x:900,y:500,width:640,height:700};
   const events = [];
   const win = {isDestroyed:()=>false,getBounds:()=>bounds,
     setSize:(width,height)=>{bounds={...bounds,width,height};},
     setPosition:(x,y)=>{bounds={...bounds,x,y};},
+    setBounds:value=>{bounds={...bounds,...value};},
     setOpacity:value=>events.push(['nativeOpacity',value]),
     setIgnoreMouseEvents:(ignore,options)=>events.push(['ignoreMouse',ignore,options]),
     setFocusable:focusable=>events.push(['focusable',focusable]),
@@ -44,6 +45,16 @@ test('compact restores the actual resized reading window and layouts stay within
   small.api.setSurface(small.win,{answer:true});
   small.api.setLayout(small.win,'wide');
   assert.deepEqual([small.win.getBounds().width,small.win.getBounds().height],[800,600]);
+});
+
+test('choosing a running display moves and fits the app onto that screen',()=>{
+  const {api,win}=windowModule();
+  api.moveToDisplay(win,{id:2,workArea:{x:-1280,y:0,width:1280,height:720}});
+  const b=win.getBounds();
+  assert.ok(b.x>=-1280 && b.x+b.width<=0);
+  assert.ok(b.y>=0 && b.y+b.height<=720);
+  api.moveToDisplay(win,{id:3,workArea:{x:1440,y:0,width:400,height:500}});
+  assert.deepEqual([win.getBounds().x,win.getBounds().y,win.getBounds().width,win.getBounds().height],[1440,0,400,500]);
 });
 
 test('opacity changes the background state while native text remains fully opaque',()=>{

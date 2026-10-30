@@ -41,7 +41,7 @@ function hydrateUi(data) {
 function hydrateCapture(config) {
   const options=config.captureOptions;
   const list=byId('quickDisplay');
-  const legend=document.createElement('legend');legend.textContent='显示器';
+  const legend=document.createElement('legend');legend.textContent='运行显示器';
   list.replaceChildren(legend);
   if(!options) {
     byId('quickCaptureMode').disabled=true;list.disabled=true;
@@ -49,10 +49,10 @@ function hydrateCapture(config) {
     return;
   }
   byId('quickCaptureMode').value=options.mode;byId('quickCaptureMode').disabled=false;
-  const selected=new Set(options.displayIds.map(String));
+  const selected=String(options.displayId);
   for(const display of options.displays) {
     const label=document.createElement('label');
-    const input=document.createElement('input');input.type='checkbox';input.value=String(display.id);input.dataset.displayId=String(display.id);input.checked=selected.has(String(display.id));
+    const input=document.createElement('input');input.type='radio';input.name='quickRunDisplay';input.value=String(display.id);input.dataset.displayId=String(display.id);input.checked=selected===String(display.id);
     const text=document.createElement('span');text.textContent=`${display.label} · ${display.width}×${display.height}`;
     label.append(input,text);list.append(label);
   }
@@ -93,18 +93,14 @@ let captureSaving=false;
 async function saveCaptureOptions(patch) {
   if(captureSaving)return;
   captureSaving=true;byId('quickCaptureMode').disabled=true;byId('quickDisplay').disabled=true;
-  try {const data=await window.cockpit.setCaptureOptions(patch);hydrateCapture({captureOptions:data});notice(data.saved===false?'本次已应用，偏好保存失败。':'截图设置已保存。');}
+  try {const data=await window.cockpit.setCaptureOptions(patch);hydrateCapture({captureOptions:data});notice(data.saved===false?'本次已应用，偏好保存失败。':patch.displayId!==undefined?'运行显示器已切换，截图跟随 App。':'截图方式已保存。');}
   catch(error){notice(error.message);try{hydrateCapture(await window.cockpit.getConfig());}catch{}}
   finally {captureSaving=false;byId('quickCaptureMode').disabled=false;byId('quickDisplay').disabled=false;}
 }
 byId('quickCaptureMode')?.addEventListener('change',()=>saveCaptureOptions({mode:byId('quickCaptureMode').value}));
 byId('quickDisplay')?.addEventListener('change',event=>{
-  if(captureSaving)return;
-  const displayIds=[...byId('quickDisplay').querySelectorAll('input[type="checkbox"]:checked')].map(input=>String(input.value));
-  if(!displayIds.length) {
-    event.target.checked=true;notice('至少选择一个显示器。');return;
-  }
-  return saveCaptureOptions({displayIds});
+  if(captureSaving||event.target.type!=='radio'||!event.target.checked)return;
+  return saveCaptureOptions({displayId:String(event.target.value)});
 });
 byId('quickManageModels')?.addEventListener('click',()=>openSettings('models'));
 byId('quickRefreshModels')?.addEventListener('click',loadModels);

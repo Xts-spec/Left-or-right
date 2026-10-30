@@ -15,14 +15,14 @@ class Element {
   querySelectorAll(selector) {
     const all=this.children.flatMap(child=>[child,...child.querySelectorAll('all')]);
     if(selector==='all')return all;
-    return all.filter(child=>child.tagName==='INPUT'&&child.type==='checkbox'&&(!selector.includes(':checked')||child.checked));
+    return all.filter(child=>child.tagName==='INPUT'&&child.type==='radio'&&(!selector.includes(':checked')||child.checked));
   }
 }
 function quickModule() {
   const elements=new Map();
   const byId=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   const calls=[];
-  const backend={mode:'area',displayIds:['1'],displays:[{id:1,label:'内建屏',width:1512,height:982},{id:2,label:'外接屏',width:1920,height:1080}]};
+  const backend={mode:'area',displayId:'1',displays:[{id:1,label:'内建屏',width:1512,height:982},{id:2,label:'外接屏',width:1920,height:1080}]};
   const sandbox={
     document:{getElementById:byId,querySelector:()=>null,createElement:tag=>new Element(tag),addEventListener(){}},
     window:{addEventListener(){},location:{origin:'http://localhost'},cockpit:{
@@ -38,40 +38,55 @@ function quickModule() {
   return {elements,byId,calls,backend,sandbox,run:code=>vm.runInContext(code,context)};
 }
 
-test('display options are checkboxes with string ids and backend selection',()=>{
+test('running displays share one radio group with a single backend selection',()=>{
   const {byId}=quickModule();
-  const inputs=byId('quickDisplay').querySelectorAll('input[type="checkbox"]');
+  const list=byId('quickDisplay');
+  const inputs=list.querySelectorAll('input[type="radio"]');
   assert.deepEqual(inputs.map(input=>input.value),['1','2']);
   assert.deepEqual(inputs.map(input=>input.checked),[true,false]);
-  assert.equal(byId('quickDisplay').disabled,false);
-});
-
-test('checking both screens sends a displayIds array and preserves both choices',async()=>{
-  const {byId,calls}=quickModule();
-  const list=byId('quickDisplay');
-  const second=list.querySelectorAll('input[type="checkbox"]')[1];second.checked=true;
-  await list.listeners.change({target:second});
-  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[{displayIds:['1','2']}]);
-  assert.deepEqual(list.querySelectorAll('input[type="checkbox"]:checked').map(input=>input.value),['1','2']);
+  assert.equal(new Set(inputs.map(input=>input.name)).size,1);
+  assert.equal(inputs[0].name,'quickRunDisplay');
+  assert.equal(list.children[0].textContent,'运行显示器');
   assert.equal(list.disabled,false);
 });
 
-test('the final display cannot be deselected and no empty update is sent',async()=>{
+test('choosing another running display sends only one string displayId',async()=>{
   const {byId,calls}=quickModule();
-  const list=byId('quickDisplay');const first=list.querySelectorAll('input[type="checkbox"]')[0];first.checked=false;
+  const list=byId('quickDisplay');
+  const second=list.querySelectorAll('input[type="radio"]')[1];second.checked=true;
+  await list.listeners.change({target:second});
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[{displayId:'2'}]);
+  assert.deepEqual(list.querySelectorAll('input[type="radio"]:checked').map(input=>input.value),['2']);
+  assert.equal(list.disabled,false);
+  assert.match(byId('quickSettingsStatus').textContent,/截图跟随 App/);
+});
+
+test('unchecked and unrelated changes cannot send an empty or multiple-display update',async()=>{
+  const {byId,calls}=quickModule();
+  const list=byId('quickDisplay');const first=list.querySelectorAll('input[type="radio"]')[0];first.checked=false;
   await list.listeners.change({target:first});
-  assert.equal(first.checked,true);
+  await list.listeners.change({target:{type:'checkbox',checked:true,value:'2'}});
   assert.equal(calls.length,0);
-  assert.match(byId('quickSettingsStatus').textContent,/至少选择一个/);
 });
 
 test('effective backend selection replaces disconnected display options',async()=>{
   const {byId,backend,sandbox}=quickModule();
-  sandbox.window.cockpit.setCaptureOptions=async()=>({mode:'full',displayIds:['2'],displays:[backend.displays[1]],saved:true});
-  const list=byId('quickDisplay');const second=list.querySelectorAll('input[type="checkbox"]')[1];second.checked=true;
+  sandbox.window.cockpit.setCaptureOptions=async()=>({mode:'full',displayId:'2',displays:[backend.displays[1]],saved:true});
+  const list=byId('quickDisplay');const second=list.querySelectorAll('input[type="radio"]')[1];second.checked=true;
   await list.listeners.change({target:second});
-  assert.deepEqual(list.querySelectorAll('input[type="checkbox"]').map(input=>[input.value,input.checked]),[['2',true]]);
+  assert.deepEqual(list.querySelectorAll('input[type="radio"]').map(input=>[input.value,input.checked]),[['2',true]]);
   assert.equal(byId('quickCaptureMode').value,'full');
+});
+
+test('failed display moves restore the effective selection returned by the app',async()=>{
+  const {byId,sandbox,calls}=quickModule();
+  sandbox.window.cockpit.setCaptureOptions=async()=>{throw Error('显示器已断开');};
+  const list=byId('quickDisplay');const second=list.querySelectorAll('input[type="radio"]')[1];second.checked=true;
+  await list.listeners.change({target:second});
+  assert.equal(calls.length,0);
+  assert.deepEqual(list.querySelectorAll('input[type="radio"]:checked').map(input=>input.value),['1']);
+  assert.match(byId('quickSettingsStatus').textContent,/显示器已断开/);
+  assert.equal(list.disabled,false);
 });
 
 test('display names are rendered as literal text and browser-only capture remains disabled',()=>{

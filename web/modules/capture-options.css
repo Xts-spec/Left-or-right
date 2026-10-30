@@ -24,7 +24,7 @@
   font-size: 12px;
   cursor: pointer;
 }
-#quickDisplay input[type="checkbox"] {
+#quickDisplay input[type="radio"] {
   flex: 0 0 14px;
   width: 14px;
   min-height: 14px;

@@ -3,6 +3,7 @@
 const { execFile, execFileSync } = require('node:child_process');
 const path = require('node:path');
 const { app, BrowserWindow, shell, screen } = require('electron');
+const { startupDisplay } = require('./capture-options');
 
 const COMPACT = { width: 560, height: 76 };
 // 780 = Gank 解答区的 740px 上限 + 窗口与卡片两层内边距（约 40px）。
@@ -72,6 +73,8 @@ function createWindow(config, { onMove, onDisplay } = {}) {
       backgroundThrottling: false,
     },
   });
+  const target = startupDisplay(config, screen.getAllDisplays(), screen.getPrimaryDisplay());
+  if (screen.getDisplayMatching(win.getBounds()).id !== target.id) moveToDisplay(win, target);
   fitWindow(win, COMPACT);
   clampToArea(win);
   setOpacity(win, opacity);
@@ -218,6 +221,18 @@ function clampToArea(win) {
   const x = Math.max(area.x, Math.min(bounds.x, area.x + Math.max(0, area.width - bounds.width)));
   const y = Math.max(area.y, Math.min(bounds.y, area.y + Math.max(0, area.height - bounds.height)));
   if (x !== bounds.x || y !== bounds.y) win.setPosition(x, y, false);
+}
+
+function moveToDisplay(win, display) {
+  if (!win || win.isDestroyed()) return;
+  const bounds = win.getBounds();
+  const area = display.workArea;
+  const width = Math.min(bounds.width, area.width);
+  const height = Math.min(bounds.height, area.height);
+  const x = Math.round(area.x + (area.width - width) / 2);
+  const y = Math.round(area.y + (area.height - height) / 2);
+  win.setBounds({ x, y, width, height }, false);
+  notifyDisplay(win);
 }
 
 function moveWindow(win, dx, dy) {
@@ -376,6 +391,7 @@ function beginHoldInteract(win) {
 
 module.exports = {
   createWindow,
+  moveToDisplay,
   moveWindow,
   setOpacity,
   changeOpacity,

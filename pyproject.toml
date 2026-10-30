@@ -1,7 +1,7 @@
 [project]
 name = "shuihuo-killer"
 version = "0.1.0"
-description = "AI interview probe and anti-padding evaluation system"
+description = "Local-first desktop screenshot study assistant"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

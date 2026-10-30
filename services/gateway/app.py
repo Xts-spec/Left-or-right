@@ -331,7 +331,7 @@ async def lifespan(fastapi_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Shuihuo Killer", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="左右", version="0.1.0", lifespan=lifespan)
 app.include_router(learning_assets_router)
 app.add_middleware(
     CORSMiddleware,
@@ -343,7 +343,6 @@ app.add_middleware(
 WEB_ROOT = Path(os.environ.get("ZUOYOU_WEB_ROOT") or Path(__file__).resolve().parents[2] / "web")
 WEB_INDEX = WEB_ROOT / "index.html"
 WEB_SETTINGS = WEB_ROOT / "settings.html"
-WEB_COCKPIT = WEB_ROOT / "cockpit.html"
 app.mount("/vendor", StaticFiles(directory=WEB_ROOT / "vendor"), name="vendor")
 WEB_ASSET_MEDIA_TYPES = {
     ".css": "text/css; charset=utf-8",
@@ -904,11 +903,6 @@ def index() -> str:
 @app.get("/settings.html", response_class=HTMLResponse)
 def settings_page() -> str:
     return WEB_SETTINGS.read_text(encoding="utf-8")
-
-
-@app.get("/cockpit", response_class=HTMLResponse)
-def cockpit() -> str:
-    return WEB_COCKPIT.read_text(encoding="utf-8")
 
 
 def _ui_settings_path() -> Path:

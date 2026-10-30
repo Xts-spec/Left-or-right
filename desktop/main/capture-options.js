@@ -1,34 +1,25 @@
 'use strict';
 
-function selectedDisplays(config, displays, primary) {
-  const ids = new Set((Array.isArray(config.captureDisplayIds) ? config.captureDisplayIds : [config.captureDisplayId]).filter(Boolean).map(String));
-  const selected = displays.filter((display) => ids.has(String(display.id)));
-  return selected.length ? selected : [primary];
+function startupDisplay(config, displays, primary) {
+  const id = config.windowDisplayId || config.captureDisplayId || config.captureDisplayIds?.[0];
+  return displays.find((display) => String(display.id) === String(id)) || primary;
 }
 
-function updateCaptureOptions(config, patch, displays) {
-  if (patch.displayIds !== undefined) {
-    if (!Array.isArray(patch.displayIds) || !patch.displayIds.length) throw new Error('请至少选择一个显示器');
-    const ids = [...new Set(patch.displayIds.map(String))];
-    if (ids.some((id) => !displays.some((display) => String(display.id) === id))) throw new Error('显示器已断开，请重新选择');
-    config.captureDisplayIds = ids;
+function validateCaptureOptions(patch, displays) {
+  if (patch.displayIds !== undefined) throw new Error('运行显示器只能选择一个');
+  if (patch.displayId !== undefined && !displays.some((display) => String(display.id) === String(patch.displayId))) {
+    throw new Error('显示器已断开，请重新选择');
   }
-  if (patch.mode !== undefined) {
-    if (!['area', 'full'].includes(patch.mode)) throw new Error('无效的截图模式');
-    config.screenshotMode = patch.mode;
-  }
+  if (patch.mode !== undefined && !['area', 'full'].includes(patch.mode)) throw new Error('无效的截图模式');
 }
 
-async function captureDisplayBatch({ displays, selected, interactive, selectRegion, captureScreenshot }) {
-  const images = [];
-  for (const display of selected) {
-    const rect = interactive ? await selectRegion(display) : null;
-    if (interactive && !rect) return [];
-    const displayIndex = displays.findIndex((item) => item.id === display.id) + 1;
-    const shot = await captureScreenshot({ interactive: false, rect, displayIndex });
-    images.push({ mime: shot.mime, data: shot.data.toString('base64') });
-  }
-  return images;
+async function captureWindowDisplay({ displays, display, interactive, selectRegion, captureScreenshot }) {
+  const rect = interactive ? await selectRegion(display) : null;
+  if (interactive && !rect) return null;
+  const displayIndex = displays.findIndex((item) => item.id === display.id) + 1;
+  if (displayIndex < 1) throw new Error('运行显示器已断开，请重新截图');
+  const shot = await captureScreenshot({ interactive: false, rect, displayIndex });
+  return { mime: shot.mime, data: shot.data.toString('base64') };
 }
 
-module.exports = { selectedDisplays, updateCaptureOptions, captureDisplayBatch };
+module.exports = { startupDisplay, validateCaptureOptions, captureWindowDisplay };
