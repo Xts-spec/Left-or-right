@@ -5,10 +5,12 @@ import vm from 'node:vm';
 
 const quickSource=fs.readFileSync(new URL('../web/modules/quick-settings.js',import.meta.url),'utf8');
 const homeSource=fs.readFileSync(new URL('../web/modules/home.js',import.meta.url),'utf8');
+const studySource=fs.readFileSync(new URL('../web/modules/study-presets.js',import.meta.url),'utf8');
 
 class Element {
   constructor(tag='div') { this.tagName=tag.toUpperCase();this.children=[];this.listeners={};this.dataset={};this.value='';this.disabled=false;this.textContent='';this.style={}; }
-  get options() { return this.children; }
+  get options() { return this.children.flatMap(child=>child.tagName==='OPTGROUP'?child.options:[child]); }
+  focus() {}
   addEventListener(type,callback) { this.listeners[type]=callback; }
   replaceChildren(...children) { this.children=[...children]; }
   append(...children) { this.children.push(...children); }
@@ -23,6 +25,7 @@ function quickModule() {
   const calls=[];
   const requests=[];
   const backend={mode:'area',displayId:'1',displays:[{id:1,label:'内建屏',width:1512,height:982},{id:2,label:'外接屏',width:1920,height:1080}]};
+  const prefs={study_specialty:'计算机 / 软件工程',study_language:'Go',answer_language:'zh-CN',assistant_role:'candidate'};
   const models={active_profile_id:'personal',profiles:[
     {id:'personal',name:'个人接口',llm_model:'same-model',llm_base_url:'https://personal.example.test/v1'},
     {id:'team',name:'团队接口',llm_model:'same-model',llm_base_url:'https://team.example.test/v1'},
@@ -39,14 +42,19 @@ function quickModule() {
       const body=options.body?JSON.parse(options.body):undefined;
       requests.push({path,method:options.method,body});
       if(path==='/api/config/llm/activate')models.active_profile_id=body.profile_id;
+      if(path==='/api/ui/settings') {
+        if(body)Object.assign(prefs,body);
+        return {ok:true,json:async()=>prefs};
+      }
       return {ok:true,json:async()=>models};
     },
   };
   const context=vm.createContext(sandbox);
-  vm.runInContext(quickSource.replace(/^import .*;$/gm,'').replaceAll('export async function','async function'),context);
+  vm.runInContext(studySource.replace(/^export /gm,'')+'\n'+quickSource.replace(/^import .*;$/gm,'').replaceAll('export async function','async function'),context);
   sandbox.config={captureOptions:backend};
   vm.runInContext('hydrateCapture(config)',context);
-  return {elements,byId,calls,requests,backend,models,sandbox,run:code=>vm.runInContext(code,context)};
+  sandbox.prefs=prefs;
+  return {elements,byId,calls,requests,backend,models,prefs,sandbox,run:code=>vm.runInContext(code,context)};
 }
 
 test('running displays use one ordinary select with the effective backend choice',()=>{
@@ -103,6 +111,71 @@ test('display names are literal option text and browser-only capture remains dis
   run('hydrateCapture({})');
   assert.equal(byId('quickDisplay').disabled,true);
   assert.equal(byId('quickCaptureMode').disabled,true);
+});
+
+test('saved Go does not filter the complete language and grouped specialty choices',()=>{
+  const {run,byId}=quickModule();
+  run('hydrateUi(prefs)');
+  const languages=byId('quickProgrammingLanguage').options.map(option=>option.value);
+  for(const value of ['', 'Go', 'Python', 'Java', 'PHP', 'MATLAB', 'Solidity', 'SystemVerilog'])assert.ok(languages.includes(value),value);
+  assert.equal(byId('quickProgrammingLanguage').value,'Go');
+  const specialty=byId('quickSpecialty');
+  assert.ok(specialty.options.some(option=>option.value==='行测'));
+  assert.ok(specialty.options.some(option=>option.value==='申论'));
+  assert.ok(specialty.children.some(group=>group.label==='考试与资格'));
+});
+
+test('exam choice patches only specialty and disables but retains the prior code language',async()=>{
+  const {run,byId,requests}=quickModule();
+  run('hydrateUi(prefs)');
+  byId('quickSpecialty').value='行测';
+  await byId('quickSpecialty').listeners.change();
+  assert.deepEqual(requests.at(-1).body,{study_specialty:'行测'});
+  assert.equal(byId('quickProgrammingLanguage').disabled,true);
+  assert.equal(byId('quickProgrammingLanguage').value,'Go');
+  byId('quickSpecialty').value='后端开发';
+  await byId('quickSpecialty').listeners.change();
+  assert.equal(byId('quickProgrammingLanguage').disabled,false);
+  assert.equal(byId('quickProgrammingLanguage').value,'Go');
+});
+
+test('custom option does not send its internal marker and saves the entered value',async()=>{
+  const {run,byId,requests}=quickModule();
+  run('hydrateUi(prefs)');
+  byId('quickProgrammingLanguage').value='__custom__';
+  await byId('quickProgrammingLanguage').listeners.change();
+  assert.equal(requests.length,0);
+  assert.equal(byId('quickProgrammingLanguageCustom').hidden,false);
+  byId('quickProgrammingLanguageCustom').value='OCaml';
+  await byId('quickProgrammingLanguageCustom').listeners.change();
+  assert.deepEqual(requests[0].body,{study_language:'OCaml'});
+  assert.equal(byId('quickProgrammingLanguage').value,'OCaml');
+  assert.equal(byId('quickProgrammingLanguageCustom').hidden,true);
+});
+
+test('empty custom input is not saved, and unknown saved choices are not lost',async()=>{
+  const {run,byId,requests,prefs}=quickModule();
+  prefs.study_language='OCaml';prefs.study_specialty='物流管理';
+  run('hydrateUi(prefs)');
+  assert.equal(byId('quickProgrammingLanguage').value,'OCaml');
+  assert.equal(byId('quickSpecialty').value,'物流管理');
+  byId('quickSpecialty').value='__custom__';
+  await byId('quickSpecialty').listeners.change();
+  byId('quickSpecialtyCustom').value='';
+  await byId('quickSpecialtyCustom').listeners.change();
+  assert.equal(requests.length,0);
+  assert.match(byId('quickSettingsStatus').textContent,/填写/);
+});
+
+test('a failed specialty save restores its saved selection and code availability',async()=>{
+  const {run,byId,sandbox}=quickModule();
+  run('hydrateUi(prefs)');
+  sandbox.fetch=async()=>{throw Error('网络失败');};
+  byId('quickSpecialty').value='申论';
+  await byId('quickSpecialty').listeners.change();
+  assert.equal(byId('quickSpecialty').value,'计算机 / 软件工程');
+  assert.equal(byId('quickProgrammingLanguage').disabled,false);
+  assert.match(byId('quickSettingsStatus').textContent,/网络失败/);
 });
 
 test('all saved profiles remain selectable even when their model names are identical',async()=>{

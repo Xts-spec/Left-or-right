@@ -3769,6 +3769,8 @@ body.liuwa-page.liuwa-compact .liuwa-shots { display: flex; }
   background: var(--surface); color: var(--ink); font-size: 12px;
 }
 .liuwa-display-panel label { display: flex; flex-wrap: wrap; gap: 3px; color: var(--ink); font-size: 12px; }
+.liuwa-study-choice { display: grid; gap: 5px; min-width: 0; }
+.liuwa-study-choice [hidden] { display: none; }
 .liuwa-settings-title, .liuwa-theme-options, .liuwa-model-options, .liuwa-settings-actions,
 .liuwa-display-panel .liuwa-shortcuts, .liuwa-display-panel > p,
 .liuwa-display-panel > button { grid-column: 1 / -1; }

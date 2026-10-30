@@ -1,5 +1,5 @@
 import { DEFAULT_HOTKEYS, formatAccelerator, acceleratorFromEvent, shortcutConflict } from "./shortcuts.js";
-import { isExamSpecialty } from "./study-presets.js";
+import { SPECIALTY_GROUPS, LANGUAGE_GROUPS, isExamSpecialty, fillStudyChoice, syncStudyCustom, readStudyChoice } from "./study-presets.js";
 import { parseDocumentFile } from "./documents.js";
 import { fetchGatewayJson, postJson } from "./gateway.js";
 import { state } from "./state.js";
@@ -43,6 +43,8 @@ function fillHotkeys(hotkeys) {
 function readSettings() {
   return {
     ...Object.fromEntries(Object.entries(studyFields).map(([key, input]) => [key, input.value.trim()])),
+    study_specialty: readStudyChoice(studyFields.study_specialty, $("#studySpecialtyCustom")),
+    study_language: readStudyChoice(studyFields.study_language, $("#studyLanguageCustom")),
     jd_text: $("#jdText").value,
     resume_text: $("#resumeText").value,
     long_term_memory_consent: $("#longTermMemoryConsent").checked,
@@ -66,7 +68,11 @@ function validateHotkeys() {
   return !conflict;
 }
 function syncDirty() {
-  $("#studySpecialtyHint").hidden = !isExamSpecialty(studyFields.study_specialty.value);
+  syncStudyCustom(studyFields.study_specialty, $("#studySpecialtyCustom"));
+  const exam = isExamSpecialty(readStudyChoice(studyFields.study_specialty, $("#studySpecialtyCustom")));
+  $("#studySpecialtyHint").hidden = !exam;
+  studyFields.study_language.disabled = exam || !savedSettings;
+  syncStudyCustom(studyFields.study_language, $("#studyLanguageCustom"));
   if (!savedSettings || saving) return;
   const valid = validateHotkeys();
   const dirty = Object.keys(changedSettings()).length > 0;
@@ -76,6 +82,10 @@ function syncDirty() {
 function fillSettings(saved) {
   savedSettings = saved;
   for (const [key, input] of Object.entries(studyFields)) input.value = saved[key] ?? "";
+  studyFields.study_specialty.disabled = false;
+  studyFields.study_language.disabled = false;
+  fillStudyChoice(studyFields.study_specialty, $("#studySpecialtyCustom"), SPECIALTY_GROUPS, saved.study_specialty);
+  fillStudyChoice(studyFields.study_language, $("#studyLanguageCustom"), LANGUAGE_GROUPS, saved.study_language);
   $("#jdText").value = saved.jd_text || "";
   $("#resumeText").value = saved.resume_text || "";
   $("#longTermMemoryConsent").checked = Boolean(saved.long_term_memory_consent);

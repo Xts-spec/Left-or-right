@@ -56,6 +56,16 @@ def test_study_preface_enforces_selected_answer_and_code_language() -> None:
     assert "编程语言：按题目要求。" in blank
 
 
+@pytest.mark.parametrize("specialty", ["行测", "申论", "考研", "英语", "金融", "法学", "医学", "会计", "教师资格"])
+def test_exam_presets_do_not_inject_the_saved_programming_language(specialty) -> None:
+    settings = UiSettings(study_specialty=specialty, study_language="Rust", answer_language="en-US")
+    preface = study_preface(settings)
+    assert f"专业 / 方向：{specialty}" in preface
+    assert "Rust" not in preface
+    assert "Rust" not in _exam_prompt(settings)
+    assert "English" in preface
+
+
 def test_english_direction_does_not_force_chinese_explanation() -> None:
     settings = UiSettings(study_specialty="英语", answer_language="en-US")
     assert "讲解用中文" not in _exam_prompt(settings)

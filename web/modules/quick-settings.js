@@ -1,12 +1,17 @@
 import {state} from './state.js';
 import {applyDisplay} from './display.js';
+import {SPECIALTY_GROUPS, LANGUAGE_GROUPS, CUSTOM_STUDY_VALUE, isExamSpecialty, fillStudyChoice, syncStudyCustom, readStudyChoice} from './study-presets.js';
 
 const byId = id => document.getElementById(id);
 const menu = byId('liuwaDisplay');
 const reader = document.querySelector('.liuwa-reader');
 const status = byId('quickSettingsStatus');
 const notice = text => { if(status) status.textContent = text; };
-const fields = {study_language:'quickProgrammingLanguage',answer_language:'quickAnswerLanguage',assistant_role:'quickIdentity'};
+const fields = {study_specialty:'quickSpecialty',study_language:'quickProgrammingLanguage',answer_language:'quickAnswerLanguage',assistant_role:'quickIdentity'};
+const studyChoices = {
+  study_specialty: {input:'quickSpecialtyCustom',groups:SPECIALTY_GROUPS},
+  study_language: {input:'quickProgrammingLanguageCustom',groups:LANGUAGE_GROUPS},
+};
 let modelsLoading = false;
 let modelProfiles = [];
 let activeProfileId = '';
@@ -33,12 +38,16 @@ function hydrateUi(data) {
   ui=data;
   for(const [key,id] of Object.entries(fields)) {
     const input=byId(id), value=data[key] || '';
-    // Preserve languages configured in advanced settings, even outside the common list.
-    if(key==='study_language' && value && ![...input.options].some(option=>option.value===value)) input.add(new Option(value,value));
-    input.value=value;
-    if(key==='study_language' && value==='') input.selectedIndex=-1;
     input.disabled=false;
+    const choice=studyChoices[key];
+    if(choice)fillStudyChoice(input,byId(choice.input),choice.groups,value);
+    else input.value=value;
   }
+  syncStudyAvailability();
+}
+function syncStudyAvailability() {
+  byId('quickProgrammingLanguage').disabled=isExamSpecialty(readStudyChoice(byId('quickSpecialty'),byId('quickSpecialtyCustom')));
+  for(const [key,choice] of Object.entries(studyChoices))syncStudyCustom(byId(fields[key]),byId(choice.input));
 }
 function hydrateCapture(config) {
   const options=config.captureOptions;
@@ -116,12 +125,29 @@ export async function loadQuickSettings() {
   // 每次打开都重读：设置页或其他窗口改了语言、模型、显示器后，这里必须跟上。
   await reloadSettings();
 }
-for(const [key,id] of Object.entries(fields))byId(id)?.addEventListener('change',async()=>{
-  const input=byId(id), previous=ui?.[key];input.disabled=true;
-  try {hydrateUi(await request('/api/ui/settings',{[key]:input.value.trim()},'PATCH'));notice('已保存，下次提问生效。');}
-  catch(error){input.value=previous || '';notice(error.message);}
-  finally {input.disabled=false;}
-});
+async function saveUiField(key) {
+  const input=byId(fields[key]);
+  const choice=studyChoices[key];
+  const custom=choice && byId(choice.input);
+  const value=choice ? readStudyChoice(input,custom) : input.value.trim();
+  if(custom && input.value===CUSTOM_STUDY_VALUE && !value) {notice('请填写自定义内容。');return;}
+  input.disabled=true;
+  if(custom)custom.disabled=true;
+  try {hydrateUi(await request('/api/ui/settings',{[key]:value},'PATCH'));notice('已保存，下次提问生效。');}
+  catch(error){if(ui)hydrateUi(ui);notice(error.message);}
+  finally {input.disabled=false;syncStudyAvailability();}
+}
+for(const [key,id] of Object.entries(fields)) {
+  byId(id)?.addEventListener('change',()=>{
+    const choice=studyChoices[key];
+    if(choice && byId(id).value===CUSTOM_STUDY_VALUE) {
+      syncStudyAvailability();byId(choice.input).focus();return;
+    }
+    return saveUiField(key);
+  });
+  const choice=studyChoices[key];
+  if(choice)byId(choice.input)?.addEventListener('change',()=>saveUiField(key));
+}
 let captureSaving=false;
 async function saveCaptureOptions(patch) {
   if(captureSaving)return;

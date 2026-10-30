@@ -3258,7 +3258,7 @@ def test_gateway_settings_page_keeps_only_current_features(tmp_path: Path, monke
     assert page.status_code == 200
     for label in ("模型接入", "答题偏好", "面试资料", "快捷键", "学习记录", "岗位信息", "简历信息"):
         assert label in page.text
-    for element in ("jdText", "resumeText", "saveUiSettings", "studySpecialty", "studySpecialtyOptions", "studyAnswerStyle", "llmToggleKey"):
+    for element in ("jdText", "resumeText", "saveUiSettings", "studySpecialty", "studySpecialtyCustom", "studyLanguage", "studyLanguageCustom", "studyAnswerStyle", "llmToggleKey"):
         assert f'id="{element}"' in page.text
     assert 'src="modules/settings.js"' in page.text
     assert 'href="modules/settings.css"' in page.text
@@ -3267,8 +3267,12 @@ def test_gateway_settings_page_keeps_only_current_features(tmp_path: Path, monke
     assert "<iframe" not in page.text
     assert "检查语音服务" not in page.text
     assert 'id="llmName"' in page.text
-    assert 'value="行测"' in page.text
-    assert 'value="申论"' in page.text
+    presets = client.get("/modules/study-presets.js").text
+    assert '"行测"' in presets
+    assert '"申论"' in presets
+    assert '<select id="studySpecialty"' in page.text
+    assert '<select id="studyLanguage"' in page.text
+    assert 'list="studyLanguageOptions"' not in page.text
     script = client.get("/modules/settings.js").text
     assert "/api/ui/settings" in script
     for action in ("toggleWindow", "clearShots", "quitApp"):
