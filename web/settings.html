@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>模型接入 · 左右</title>
+    <link rel="icon" href="modules/pangsi-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="modules/settings.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="左右首页"><img src="modules/pangsi-mark.svg" alt="" width="28" height="28" /><span>左右</span></a>
+      <nav class="settings-nav" aria-label="设置分区">
+        <a href="#models" aria-current="page">模型接入</a>
+        <a href="#study">答题偏好</a>
+        <a href="#briefing">面试资料</a>
+        <a href="#shortcuts">快捷键</a>
+        <a href="#assets">学习记录</a>
+      </nav>
+      <span class="service-status" id="serviceStatus" role="status">连接应用中</span>
+    </header>
+
+    <main class="settings-content">
+      <section id="models" class="settings-view" aria-labelledby="modelsTitle">
+        <header class="page-heading"><p class="page-context">左右设置</p><h1 id="modelsTitle">接好模型，<br />开始你的下一题。</h1><p>你的接口，你的模型。配置只保存在这台电脑上。</p></header>
+        <div class="section-heading"><h2>我的模型</h2><button type="button" class="secondary" id="llmNewProfile">添加模型 <span aria-hidden="true">＋</span></button></div>
+        <div class="model-grid" id="llmProfileCards" aria-label="已保存的模型"><p class="empty-state">正在读取模型…</p></div>
+        <details class="presets-disclosure" id="llmPresetBlock">
+          <summary>从预置添加 <span>局域网与云端接口</span></summary>
+          <div class="preset-grid" id="llmPresetCards"></div>
+        </details>
+        <form id="llmForm" class="connection-editor">
+          <div class="section-heading"><h2 id="llmFormTitle">编辑模型</h2><button type="button" class="text-button" id="llmCancelEdit">还原修改</button></div>
+          <div class="connection-fields">
+            <label for="llmBaseUrl">接口 URL</label>
+            <div><input id="llmBaseUrl" type="url" required autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /><p class="field-hint">支持基础地址或完整接口路径，自动识别协议。</p></div>
+            <label for="llmApiKey">API Key</label>
+            <div class="key-field"><input id="llmApiKey" type="password" autocomplete="off" spellcheck="false" aria-label="API Key" placeholder="输入 API Key" /><button type="button" id="llmToggleKey" class="text-button" aria-controls="llmApiKey" aria-pressed="false" aria-label="显示 API Key" title="显示 API Key"><img class="eye-open" src="modules/icons/eye.svg" alt="" /><img class="eye-closed" src="modules/icons/eye-off.svg" alt="" /></button></div>
+            <label for="llmModel">模型名称</label>
+            <div><input id="llmModel" list="llmModelOptions" required maxlength="160" autocomplete="off" spellcheck="false" placeholder="输入接口提供的模型名称" /><datalist id="llmModelOptions"></datalist></div>
+          </div>
+          <details class="output-options"><summary>输出额度 <span>默认 30,000 tokens</span></summary><label for="llmMaxTokens">单次最多输出 tokens</label><input id="llmMaxTokens" type="number" min="1" max="1000000" step="1" value="30000" /></details>
+          <div class="form-actions"><button type="submit" id="saveLlmProfile">保存并使用 <span aria-hidden="true">↗</span></button><button type="button" class="secondary" id="checkModel">测试当前模型</button><p id="llmProfileState" role="status" aria-live="polite"></p></div>
+        </form>
+        <details class="import-disclosure" id="llmImport"><summary>导入模型配置</summary><p class="field-hint">粘贴 JSON，或选择配置文件。导入不会切换当前模型。</p><label for="llmImportText">配置 JSON</label><textarea id="llmImportText" rows="4" maxlength="60000" spellcheck="false" placeholder='{"base_url":"https://api.example.com/v1","model":"model-name","api_key":"..."}'></textarea><div class="form-actions"><button type="button" class="secondary" id="importLlmProfile">导入配置</button><label class="file-button" for="llmImportFile">选择 JSON 文件</label><input id="llmImportFile" type="file" accept=".json,application/json" class="file-input" /></div><p id="llmImportState" role="status"></p></details>
+      </section>
+
+      <form id="studySettingsForm">
+        <section id="study" class="settings-view" aria-labelledby="studyTitle" hidden>
+          <header class="page-heading"><p class="page-context">答题偏好</p><h1 id="studyTitle">让解答，<br />按你的习惯来。</h1><p>保存后，从下一次提问开始生效。</p></header>
+          <div class="field-grid">
+            <label>专业 / 方向<input id="studySpecialty" list="studySpecialtyOptions" maxlength="120" placeholder="选择或填写你的方向" /><datalist id="studySpecialtyOptions"><option value="计算机 / 软件工程"></option><option value="行测"></option><option value="申论"></option><option value="考研"></option><option value="英语"></option><option value="金融"></option><option value="法学"></option><option value="医学"></option><option value="会计"></option><option value="电子信息"></option><option value="教师资格"></option></datalist></label>
+            <label>编程语言<input id="studyLanguage" list="studyLanguageOptions" maxlength="80" placeholder="不指定，按题目要求" /><datalist id="studyLanguageOptions"><option value="Python"></option><option value="Java"></option><option value="C++"></option><option value="C"></option><option value="JavaScript"></option><option value="TypeScript"></option><option value="Go"></option><option value="Rust"></option><option value="C#"></option><option value="Kotlin"></option><option value="Swift"></option><option value="SQL"></option></datalist></label>
+            <label>回答语言<select id="studyAnswerLanguage"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
+            <label>讲解方式<select id="studyAnswerStyle"><option value="hints">先给提示</option><option value="walkthrough">分步讲解</option><option value="solution">完整解答</option></select></label>
+            <label class="field-wide">复习目标<textarea id="studyGoal" rows="2" maxlength="1000" placeholder="你希望重点练习什么？"></textarea></label>
+          </div>
+          <p id="studySpecialtyHint" class="field-hint" hidden>考试类方向不会附带编程语言。</p>
+          <details class="extra-preferences"><summary>补充偏好</summary><label for="studyInstructions">额外的讲解要求</label><textarea id="studyInstructions" rows="3" maxlength="2000" placeholder="例如：先解释最直接的解法，再讲如何优化。"></textarea></details>
+        </section>
+
+        <section id="briefing" class="settings-view" aria-labelledby="briefingTitle" hidden>
+          <header class="page-heading"><p class="page-context">面试资料</p><h1 id="briefingTitle">把经历与岗位，<br />放在一起准备。</h1><p>这些资料用于面试，不会附加到截图笔试的提问里。</p></header>
+          <div class="field-grid">
+            <label>我的身份<select id="studyAssistantRole"><option value="candidate">面试者</option><option value="interviewer">面试官</option></select></label>
+          </div>
+          <div class="briefing-block"><div class="section-heading"><h2>岗位信息</h2><label class="file-button" for="jdFile">上传文档 <span aria-hidden="true">↗</span></label><input type="file" id="jdFile" class="file-input" accept=".txt,.md,.json,.pdf,.doc,.docx,image/*" /></div><label class="sr-only" for="jdText">岗位 JD</label><textarea id="jdText" rows="7" placeholder="粘贴岗位职责、能力要求和业务背景"></textarea><p id="jdFileStatus" class="field-hint" role="status">支持 PDF、Word、图片和文本。</p></div>
+          <div class="briefing-block"><div class="section-heading"><h2>简历信息</h2><label class="file-button" for="resumeFile">上传文档 <span aria-hidden="true">↗</span></label><input type="file" id="resumeFile" class="file-input" accept=".txt,.md,.json,.pdf,.doc,.docx,image/*" /></div><label class="sr-only" for="resumeText">简历摘要</label><textarea id="resumeText" rows="7" placeholder="粘贴经历、项目和职责"></textarea><p id="resumeFileStatus" class="field-hint" role="status">支持 PDF、Word、图片和文本。</p></div>
+          <label class="consent-row"><input type="checkbox" id="longTermMemoryConsent" /><span>记录跨面试长期记忆<small>勾选表示已获得候选人同意。未勾选时本次面试不会留下任何跨面试记忆。</small></span></label>
+        </section>
+
+        <section id="shortcuts" class="settings-view" aria-labelledby="shortcutsTitle" hidden>
+          <header class="page-heading"><p class="page-context">桌面快捷键</p><h1 id="shortcutsTitle">手不用离开键盘。</h1><p>点击组合键后重新按键。Esc 取消，保存后自动同步到应用。</p></header>
+          <div class="section-heading"><h2>按键设置</h2><button type="button" class="secondary" id="resetHotkeys" disabled>恢复默认</button></div>
+          <p id="hotkeyFeedback" class="field-hint" role="status"></p>
+          <div class="shortcut-list" id="hotkeyList"></div>
+        </section>
+        <footer class="save-footer" id="settingsSavebar" hidden><p id="settingsSaveState" role="status" aria-live="polite">正在读取设置…</p><button type="submit" id="saveUiSettings" disabled>保存偏好 <span aria-hidden="true">↗</span></button></footer>
+      </form>
+
+      <section id="assets" class="settings-view" aria-labelledby="assetsTitle" hidden>
+        <header class="page-heading"><p class="page-context">学习记录</p><h1 id="assetsTitle">每一题，<br />都值得再看一遍。</h1><p>回看截图与解答，把有用的内容留进知识库。</p></header>
+        <nav class="asset-tabs" id="assetTabs" aria-label="记录类型"><button type="button" class="asset-tab is-active" data-asset-tab="exams" aria-pressed="true">笔试记录</button><button type="button" class="asset-tab" data-asset-tab="records" aria-pressed="false">会话记录</button><button type="button" class="asset-tab" data-asset-tab="kb" aria-pressed="false">知识库</button></nav>
+        <section id="assetExams" class="asset-pane"><div class="asset-toolbar"><button type="button" class="secondary" id="examsExport">导出 Markdown <span aria-hidden="true">↗</span></button></div><div class="asset-list" id="examsList"></div></section>
+        <section id="assetRecords" class="asset-pane" hidden><div class="asset-toolbar"><button type="button" class="secondary" id="recordsExport">导出 Markdown <span aria-hidden="true">↗</span></button></div><div class="asset-list" id="recordsList"></div></section>
+        <section id="assetKB" class="asset-pane" hidden><div class="asset-toolbar"><label class="sr-only" for="kbSearch">搜索知识库</label><input id="kbSearch" type="search" placeholder="搜索问题、答案或标签" /><button type="button" class="secondary" id="kbImport">从会话导入</button><button type="button" class="secondary" id="kbExport">导出 Markdown</button></div><div id="kbStats" class="asset-kb-stats"></div><div id="kbTags" class="asset-kb-tags"></div><div id="kbList" class="asset-list"></div></section>
+      </section>
+    </main>
+    <footer class="site-footer"><span>左右</span><span>思路，就在旁边。</span></footer>
+    <script type="module" src="modules/settings.js"></script>
+  </body>
+</html>

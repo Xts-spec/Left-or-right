@@ -1,0 +1,37 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.env
+models/
+data/
+data/*.db
+data/*.sqlite
+data/reports/
+*.pdf
+node_modules/
+desktop/config.json
+desktop/dist/
+
+.ai-tracker
+
+# Gank Interview 逆向产物（第三方应用包，仅本地参照，不入库）
+reference/gank/
+
+# 本机预览/编辑器配置
+.claude/launch.json
+
+# 本地验收产物（含第三方分析结果和浏览器调试记录）
+.playwright-cli/
+output/
+
+.env.*
+!.env.example
+*.pem
+*.key
+model_profiles.json
+model_presets.json
+ui_settings.json
