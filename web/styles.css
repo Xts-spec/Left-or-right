@@ -110,8 +110,8 @@ a.button {
     transform var(--dur-fast) ease;
 }
 
-button:hover,
-a.button:hover {
+button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *),
+a.button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
@@ -138,8 +138,8 @@ a.secondary {
   box-shadow: var(--shadow-xs);
 }
 
-button.secondary:hover,
-a.secondary:hover {
+button.secondary:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *),
+a.secondary:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
   background: var(--surface);
   color: var(--accent);
@@ -152,7 +152,7 @@ button.ghost {
   box-shadow: none;
 }
 
-button.ghost:hover {
+button.ghost:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: rgba(15, 23, 42, 0.04);
   border-color: transparent;
   color: var(--ink);
@@ -164,7 +164,7 @@ button.danger {
   box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
 }
 
-button.danger:hover {
+button.danger:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: #b91c1c;
   border-color: #b91c1c;
 }
@@ -436,7 +436,7 @@ button.shortcut-item + .shortcut-item {
   border-radius: 8px;
 }
 
-button.shortcut-item:hover {
+button.shortcut-item:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--surface);
   border-color: transparent;
   color: var(--ink);
@@ -621,7 +621,7 @@ body:not(.has-interview) .insight-drawer {
   display: none;
 }
 
-.chat-suggestions button:hover {
+.chat-suggestions button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
   background: var(--accent-soft);
   color: var(--ink);
@@ -1028,10 +1028,10 @@ input[type="file"]:disabled {
   background: var(--surface);
 }
 
-.dimension:hover,
-.probe-card:hover,
-.event:hover,
-.option-card:hover {
+.dimension:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *),
+.probe-card:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *),
+.event:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *),
+.option-card:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
 }
 
@@ -1676,7 +1676,7 @@ body.cockpit-shell .shortcut-board {
   border-left-color: rgba(255, 255, 255, 0.55);
 }
 
-body.cockpit-shell button.shortcut-item:hover {
+body.cockpit-shell button.shortcut-item:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: rgba(255, 255, 255, 0.5);
 }
 
@@ -1903,7 +1903,7 @@ body.settings-page {
   transition: color var(--dur-fast) ease, border-color var(--dur-fast) ease;
 }
 
-.settings-rail a:hover {
+.settings-rail a:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   color: var(--ink);
 }
 
@@ -2135,7 +2135,7 @@ html.transparent-white {
   font-weight: 500;
   line-height: 1.6;
 }
-.liuwa-pagination button:hover:not(:disabled) { background: #e5e7eb; }
+.liuwa-pagination button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *):not(:disabled) { background: #e5e7eb; }
 .liuwa-pagination select {
   width: auto;
   min-width: 0;
@@ -2165,7 +2165,7 @@ html.transparent-white {
   font-size: 13px;
   font-weight: 500;
 }
-.liuwa-answer-tabs button:hover { background: var(--accent-soft); }
+.liuwa-answer-tabs button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: var(--accent-soft); }
 .liuwa-answer-tabs button[aria-selected="true"] {
   color: var(--accent);
   background: var(--accent-soft);
@@ -2441,7 +2441,7 @@ html.transparent-white {
   cursor: pointer;
   opacity: 0.75;
 }
-.md .md-copy:hover, .md .md-copy:focus-visible { opacity: 1; }
+.md .md-copy:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *), .md .md-copy:focus-visible { opacity: 1; }
 .md .md-copy.is-done { color: #7ddba0; opacity: 1; }
 .md .md-code-body {
   display: flex;
@@ -2522,7 +2522,7 @@ html.transparent-white {
   transition: transform var(--dur-base) var(--ease-out-strong), opacity var(--dur-base) ease;
 }
 
-.liuwa-thumb-open:hover {
+.liuwa-thumb-open:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: none;
   transform: scale(1.04);
 }
@@ -2552,7 +2552,7 @@ html.transparent-white {
   transition: opacity var(--dur-fast) ease;
 }
 
-.liuwa-thumb:hover .liuwa-thumb-x,
+.liuwa-thumb:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) .liuwa-thumb-x,
 .liuwa-thumb-x:focus-visible {
   opacity: 1;
 }
@@ -2580,7 +2580,7 @@ html.transparent-white {
   box-shadow: none;
 }
 
-.liuwa-shot-chip:hover {
+.liuwa-shot-chip:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   border-color: var(--accent);
   background: var(--surface);
   color: var(--accent);
@@ -2693,7 +2693,7 @@ html.transparent-white {
   box-shadow: none;
 }
 
-.liuwa-lightbox-close:hover {
+.liuwa-lightbox-close:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: rgba(6, 12, 26, 0.82);
 }
 
@@ -2721,7 +2721,7 @@ body.is-lightbox {
 
 .liuwa-optional { margin-left: 4px; font-weight: 400; opacity: 0.75; }
 .liuwa-orb button.secondary { background: rgba(255, 255, 255, 0.2); border-color: rgba(86, 108, 137, 0.18); box-shadow: none; }
-.liuwa-orb button.secondary:hover { background: rgba(255, 255, 255, 0.48); }
+.liuwa-orb button.secondary:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: rgba(255, 255, 255, 0.48); }
 .liuwa-orb button { border-radius: 10px; box-shadow: none; }
 /* 有回答之后，四行快捷键面板让位给正文：只留一行「全部快捷键」，
    需要时展开即可。Gank 的命令区在有内容时也只占一行。 */
@@ -2762,7 +2762,7 @@ body:not(.is-empty) .liuwa-shortcuts { margin-top: 2px; padding-top: 8px; }
   cursor: pointer;
   user-select: none;
 }
-.liuwa-stop:hover { background: var(--accent); color: #fff; }
+.liuwa-stop:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: var(--accent); color: #fff; }
 
 .liuwa-turn.is-stopped .liuwa-stream {
   border-style: dashed;
@@ -2807,6 +2807,13 @@ html.liuwa-host {
 html.liuwa-host * {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* Native pass-through can leave :hover cached, so hover selectors also require an armed host. */
+html.liuwa-host body:not(.liuwa-armed),
+html.liuwa-host body:not(.liuwa-armed) * {
+  pointer-events: none !important;
+  transition: none !important;
 }
 
 html.liuwa-host .liuwa-orb {
@@ -2910,7 +2917,7 @@ body.liuwa-compact .liuwa-orb {
 .settings-card > .small { margin: 0; }
 .settings-page .small-button { min-height: 30px; padding: 5px 10px; font-size: 12px; }
 .settings-page .is-danger { color: var(--red); }
-.settings-page .is-danger:hover { background: var(--red-soft); color: var(--red); }
+.settings-page .is-danger:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: var(--red-soft); color: var(--red); }
 .settings-page .is-warn { color: var(--amber); }
 
 @media (max-width: 900px) {
@@ -3083,7 +3090,7 @@ html:not(.liuwa-host) .liuwa-page {
   transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
 
-.model-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.model-card:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
 .model-card.is-editing { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 
 .model-card-top {
@@ -3145,7 +3152,7 @@ html:not(.liuwa-host) .liuwa-page {
   transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
 }
 
-.model-preset:hover {
+.model-preset:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   border-color: var(--accent);
   border-style: solid;
   background: var(--surface);
@@ -3228,7 +3235,7 @@ html:not(.liuwa-host) .liuwa-page {
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out-strong);
 }
-.liuwa-history-btn:hover {
+.liuwa-history-btn:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -3275,7 +3282,7 @@ html:not(.liuwa-host) .liuwa-page {
   font-size: 12px;
   cursor: pointer;
 }
-.liuwa-history-actions button:hover {
+.liuwa-history-actions button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -3304,7 +3311,7 @@ html:not(.liuwa-host) .liuwa-page {
   background: var(--surface);
   transition: box-shadow var(--dur-fast) var(--ease-out-strong);
 }
-.liuwa-history-item:hover {
+.liuwa-history-item:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   box-shadow: var(--shadow);
 }
 .liuwa-history-item header {
@@ -3343,11 +3350,11 @@ html:not(.liuwa-host) .liuwa-page {
   font-size: 11px;
   cursor: pointer;
 }
-.liuwa-history-item footer button:hover {
+.liuwa-history-item footer button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
-.liuwa-history-item footer .liuwa-history-delete:hover {
+.liuwa-history-item footer .liuwa-history-delete:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--red-soft);
   border-color: var(--red);
   color: var(--red);
@@ -3375,7 +3382,7 @@ html:not(.liuwa-host) .liuwa-page {
   font-size: 12px;
   cursor: pointer;
 }
-.liuwa-history-back:hover {
+.liuwa-history-back:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
@@ -3501,7 +3508,7 @@ body.liuwa-shell .liuwa-history-panel {
   cursor: pointer;
   transition: all var(--dur-fast) var(--ease-out-strong);
 }
-.liuwa-kb-tag:hover {
+.liuwa-kb-tag:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
@@ -3596,11 +3603,11 @@ body.liuwa-shell .liuwa-history-panel {
   font-size: 11px;
   cursor: pointer;
 }
-.liuwa-kb-item footer button:hover {
+.liuwa-kb-item footer button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
-.liuwa-kb-item footer .liuwa-kb-delete:hover {
+.liuwa-kb-item footer .liuwa-kb-delete:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   background: var(--red-soft);
   border-color: var(--red);
   color: var(--red);
@@ -3725,8 +3732,8 @@ body.liuwa-page.liuwa-compact .liuwa-shots { display: flex; }
   font-weight: 500;
   white-space: nowrap;
 }
-.liuwa-command-bar > button:hover,
-.liuwa-command-bar .liuwa-display > summary:hover { background: var(--accent-soft); }
+.liuwa-command-bar > button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *),
+.liuwa-command-bar .liuwa-display > summary:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: var(--accent-soft); }
 .liuwa-command-bar kbd { font: inherit; font-size: 10px; color: var(--muted); }
 .liuwa-command-bar #liuwaToggleShots { max-width: 110px; overflow: hidden; text-overflow: ellipsis; font-size: 10px; padding: 5px; }
 .liuwa-command-bar .liuwa-display { margin-left: auto; -webkit-app-region: no-drag; }
@@ -3768,7 +3775,7 @@ body.liuwa-page.liuwa-compact .liuwa-shots { display: flex; }
 .liuwa-settings-title { display: flex; align-items: center; justify-content: space-between; padding-bottom: 2px; }
 .liuwa-settings-title strong { font-size: 13px; font-weight: 600; }
 .liuwa-display-panel button { min-height: 28px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); box-shadow: none; border-radius: 6px; }
-.liuwa-display-panel button:hover { background: var(--accent-soft); }
+.liuwa-display-panel button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: var(--accent-soft); }
 .liuwa-settings-title button { min-height: 24px; border: 0; font-size: 18px; }
 .liuwa-theme-options, .liuwa-settings-actions { display: flex; gap: 5px; flex-wrap: wrap; }
 .liuwa-theme-options button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
@@ -3801,7 +3808,7 @@ body.liuwa-shell { color: var(--ink); }
 .liuwa-reader .md-code-head { color: var(--muted); }
 .liuwa-reader .md-table th, .liuwa-reader .md-table tbody tr { background: transparent; }
 .liuwa-pagination button { color: var(--ink); }
-.liuwa-pagination button:hover:not(:disabled) { background: var(--accent-soft); }
+.liuwa-pagination button:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *):not(:disabled) { background: var(--accent-soft); }
 .liuwa-display-panel .liuwa-shortcuts summary { border: 0; padding: 0; background: transparent; }
 .liuwa-display-panel input:focus-visible, .liuwa-display-panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 html[data-theme="light"] .md-code :is(.hljs-doctag, .hljs-keyword, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_) { color: #cf222e; }
@@ -3854,7 +3861,7 @@ html[data-theme="dark"] .md th, html[data-theme="transparent-white"] .md th { ba
   cursor: pointer;
   transition: all var(--dur-fast) var(--ease-out-strong);
 }
-.asset-tab:hover { border-color: var(--accent); color: var(--accent); }
+.asset-tab:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { border-color: var(--accent); color: var(--accent); }
 .asset-tab.is-active {
   background: var(--accent);
   border-color: var(--accent);
@@ -3911,7 +3918,7 @@ html[data-theme="dark"] .md th, html[data-theme="transparent-white"] .md th { ba
   border-radius: var(--radius-full);
   cursor: pointer;
 }
-.asset-tag:hover { border-color: var(--accent); color: var(--accent); }
+.asset-tag:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { border-color: var(--accent); color: var(--accent); }
 .asset-tag.is-active {
   background: var(--accent-soft);
   border-color: var(--accent);

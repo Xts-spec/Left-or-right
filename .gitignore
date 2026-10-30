@@ -15,6 +15,7 @@ data/reports/
 node_modules/
 desktop/config.json
 desktop/dist/
+desktop/backend/
 
 .ai-tracker
 

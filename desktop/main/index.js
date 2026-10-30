@@ -2,7 +2,7 @@
 
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
-const { app, ipcMain, Menu, shell, nativeTheme, systemPreferences, screen } = require('electron');
+const { app, ipcMain, Menu, shell, nativeTheme, systemPreferences, screen, dialog } = require('electron');
 const { loadConfig, saveConfig } = require('./config');
 const {
   createWindow,
@@ -20,11 +20,13 @@ const {
   setSurface,
   setTheme,
   setInteractive,
+  isInteractive,
 } = require('./window');
 const { registerHotkeys, unregisterHotkeys, BINDINGS, bindingsWith, formatAccelerator } = require('./hotkeys');
 const { captureScreenshot } = require('./capture');
+const { selectedDisplays, updateCaptureOptions, captureDisplayBatch } = require('./capture-options');
 const { selectRegion } = require('./selector');
-const { startBackend, stopBackend, waitForHealth } = require('./backend');
+const { ensureBackend, stopBackend } = require('./backend');
 const { startCommandKeyMonitor } = require('./command-key');
 
 app.setName('左右');
@@ -176,28 +178,17 @@ async function attachScreenshot({ interactive }) {
   const wasVisible = await hideWindowForCapture();
   try {
     const displays = screen.getAllDisplays();
-    const display = displays.find(d => String(d.id) === String(config.captureDisplayId)) || screen.getPrimaryDisplay();
-    const displayIndex = displays.findIndex(d => d.id === display.id) + 1;
-    let rect = null;
-    if (interactive) {
-      // 两点式框选：先让用户点两个角，再按矩形截。
-      // 取消（Esc / 右键）返回 null，此时不该截图也不该报错。
-      rect = await selectRegion(display);
-      if (!rect) {
-        restoreWindow(wasVisible);
-        return;
-      }
-    }
-    // 节流只统计真正发生了的截图：取消/重选不该被 800ms 挡回去。
-    lastScreenshotTime = Date.now();
-    const shot = await captureScreenshot({ interactive: false, rect, displayIndex });
-    restoreWindow(wasVisible);
-    sendCapture({
-      mime: shot.mime,
-      data: shot.data.toString('base64'),
+    const images = await captureDisplayBatch({
+      displays,
+      selected: selectedDisplays(config, displays, screen.getPrimaryDisplay()),
+      interactive,
+      selectRegion,
+      captureScreenshot,
     });
+    if (!images.length) return;
+    lastScreenshotTime = Date.now();
+    sendCapture({ images });
   } catch (error) {
-    restoreWindow(wasVisible);
     const raw = String(error.message || error);
     // Unpackaged builds often report 'not-determined' even when the host app is
     // authorized, so only 'denied' is trusted on its own; the screencapture stderr
@@ -217,6 +208,7 @@ async function attachScreenshot({ interactive }) {
     }
     sendCaptureError(raw);
   } finally {
+    restoreWindow(wasVisible);
     screenBusy = false;
   }
 }
@@ -233,8 +225,8 @@ function hotkeySnapshot() {
 
 function captureOptions() {
   const displays = screen.getAllDisplays();
-  const selected = displays.find(d => String(d.id) === String(config.captureDisplayId)) || screen.getPrimaryDisplay();
-  return {mode:config.screenshotMode || 'area',displayId:String(selected.id),displays:displays.map((d,i)=>({id:String(d.id),label:d.label || `显示器 ${i+1}`,width:d.bounds.width,height:d.bounds.height,scaleFactor:d.scaleFactor}))};
+  const selected = selectedDisplays(config, displays, screen.getPrimaryDisplay());
+  return {mode:config.screenshotMode || 'area',displayIds:selected.map((display) => String(display.id)),displays:displays.map((d,i)=>({id:String(d.id),label:d.label || `显示器 ${i+1}`,width:d.bounds.width,height:d.bounds.height,scaleFactor:d.scaleFactor}))};
 }
 
 function registerIpc() {
@@ -244,6 +236,7 @@ function registerIpc() {
     ...hotkeySnapshot(),
     display: getDisplayState(win),
     captureOptions: captureOptions(),
+    armed: isInteractive(),
   }));
   ipcMain.on('cockpit:getConfigSync', (event) => {
     event.returnValue = { gatewayUrl: config.gatewayUrl, gatewayApiKey: config.gatewayApiKey };
@@ -267,18 +260,19 @@ function registerIpc() {
   });
   ipcMain.handle('cockpit:setCaptureOptions', (_event, patch) => {
     if(!patch || typeof patch !== 'object') throw new Error('Invalid capture settings');
-    if(['area','full'].includes(patch.mode)) config.screenshotMode = patch.mode;
-    if(patch.displayId !== undefined) {
-      if(!screen.getAllDisplays().some(d => String(d.id) === String(patch.displayId))) throw new Error('显示器已断开，请重新选择');
-      config.captureDisplayId = String(patch.displayId);
-    }
-    const saved = saveConfig({screenshotMode:config.screenshotMode || 'area',captureDisplayId:config.captureDisplayId || ''});
+    updateCaptureOptions(config, patch, screen.getAllDisplays());
+    const options = captureOptions();
+    const saved = saveConfig({screenshotMode:options.mode,captureDisplayIds:options.displayIds});
     return {...captureOptions(),saved};
   });
-  ipcMain.handle('cockpit:openSettings', (_event, section) => {
-    // 只接受固定分区的深链接，避免渲染层可导航到任意地址。
+  ipcMain.handle('cockpit:openSettings', async (_event, section) => {
+    if (!await ensureBackend(config)) {
+      dialog.showErrorBox('设置服务未能启动', '请重启应用后重试。服务日志位于应用的 gateway.log 日志文件中。');
+      return false;
+    }
     const anchor = ['study', 'models', 'assets'].includes(section) ? `#${section}` : '';
-    return shell.openExternal(`${config.gatewayUrl}/settings${anchor}`);
+    await shell.openExternal(`${config.gatewayUrl}/settings${anchor}`);
+    return true;
   });
   ipcMain.handle('liuwa:reset-view', () => { if(win && !win.isDestroyed()) win.webContents.send('liuwa:reset-view'); });
   ipcMain.handle('cockpit:toggleVisible', () => {
@@ -313,12 +307,9 @@ async function boot() {
     app.setActivationPolicy('accessory');
   }
   nativeTheme.themeSource = 'light';
-  if (config.spawnBackend) {
-    startBackend(config);
+  if (!await ensureBackend(config)) {
+    dialog.showErrorBox('本地服务未能启动', '请重新打开应用。如果问题持续，请检查应用日志目录中的 gateway.log。');
   }
-  await waitForHealth(config.gatewayUrl, {
-    timeoutMs: config.spawnBackend ? 30000 : 3000,
-  });
   registerIpc();
   failedHotkeys = registerHotkeys(hotkeyHandlers(), currentBindings);
   win = createWindow(config, {

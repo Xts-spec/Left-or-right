@@ -309,7 +309,7 @@ let previousPid = '';
 
 function setClickThrough(win, ignore) {
   if (!win || win.isDestroyed()) return;
-  win.setIgnoreMouseEvents(Boolean(ignore), { forward: true });
+  win.setIgnoreMouseEvents(Boolean(ignore), { forward: false });
 }
 
 function frontmostPid() {

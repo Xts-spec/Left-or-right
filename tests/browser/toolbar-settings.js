@@ -5,13 +5,13 @@ async(page)=>{
     window.__GATEWAY_URL__='http://127.0.0.1:8003';
     const e=window.__toolbarEvents={};const calls=window.__toolbarCalls=[];
     const display={opacity:.9,layout:'narrow',compact:true,theme:'light',answer:false};
-    const capture={mode:'area',displayId:'1',displays:[{id:'1',label:'内建屏',width:1512,height:982},{id:'2',label:'外接屏',width:1920,height:1080}]};
-    window.cockpit={getConfig:async()=>({hotkeys:[],failedHotkeys:[],display:{...display},captureOptions:{...capture}}),
+    const capture={mode:'area',displayIds:['1'],displays:[{id:'1',label:'内建屏',width:1512,height:982},{id:'2',label:'外接屏',width:1920,height:1080}]};
+    window.cockpit={getConfig:async()=>({hotkeys:[],failedHotkeys:[],armed:true,display:{...display},captureOptions:{...capture}}),
       setSurface:async patch=>{calls.push(['surface',patch]);if(patch.answer===false)display.compact=true;else if(patch.answer===true&&!display.answer)display.compact=false;Object.assign(display,patch);return {...display};},
       setDisplay:async patch=>{Object.assign(display,patch);calls.push(['display',patch]);return {...display,saved:true};},
       setCaptureOptions:async patch=>{Object.assign(capture,patch);calls.push(['captureOptions',patch]);return {...capture,saved:true};},
       captureExam:async()=>calls.push(['capture']),
-      onCapture:fn=>e.capture=fn,onReset:fn=>e.reset=fn,onRead:fn=>e.read=fn};
+      onCapture:fn=>e.capture=fn,onReset:fn=>e.reset=fn,onRead:fn=>e.read=fn,onArmed:fn=>e.armed=fn};
   });
   let prefs={study_language:'Python',answer_language:'zh-CN',assistant_role:'candidate',study_instructions:'keep'};
   const patches=[];const models=[];let savedSessions=0;
@@ -29,8 +29,12 @@ async(page)=>{
     if(route.request().url().endsWith('/upsert'))savedSessions++;
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[],item:body.item,imported:0})});
   });
+  await page.route('**/api/learning-assets/exams**',route=>{
+    const body=route.request().method()==='POST'?route.request().postDataJSON():{};
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({items:[],item:body.item,imported:0})});
+  });
   await page.route('**/api/chat/stream',route=>route.fulfill({status:200,contentType:'text/event-stream',body:'data: '+JSON.stringify({delta:'<!-- liuwa:type=choice -->\n## 答案\nB. TCP\n## 解题思路\n可靠、有序的传输。\n## 详细解析\n排除 UDP。'})+'\n\ndata: {"done":true}\n\n'}));
-  await page.goto('http://127.0.0.1:9958/index.html');
+  await page.goto('http://127.0.0.1:9958/');
   await page.waitForFunction(()=>!!window.__liuwaSend);
   if(!await page.locator('.liuwa-reader').isHidden())throw Error('idle still occupies a reading window');
   if(!await page.locator('#liuwaQuestions').isHidden())throw Error('question selector is visible with no questions');
@@ -39,9 +43,19 @@ async(page)=>{
   if(barWidth<530)throw Error('the idle toolbar does not fill its narrow window');
   if(barHeight>65)throw Error('idle command bar is too tall');
   await page.screenshot({path:'output/playwright/toolbar-idle.png'});
-  const png=(await(await page.request.get('http://127.0.0.1:9958/mock_q.png')).body()).toString('base64');
+  const png=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=600;canvas.height=240;const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,600,240);ctx.fillStyle='black';ctx.font='24px sans-serif';ctx.fillText('截图测试：两个整数之和',24,80);return canvas.toDataURL('image/png').split(',')[1];});
   await page.evaluate(data=>window.__toolbarEvents.capture({mime:'image/png',data}),png);
   if(await page.locator('#liuwaShots').isHidden())throw Error('idle thumbnail is hidden');
+  await page.evaluate(data=>window.__toolbarEvents.capture({images:[{mime:'image/png',data},{mime:'image/png',data}]}),png);
+  if(await page.locator('.liuwa-thumb').count()!==3)throw Error('a two-display batch was not received together');
+  await page.evaluate(data=>window.__toolbarEvents.capture({images:Array.from({length:4},()=>({mime:'image/png',data}))}),png);
+  if(await page.locator('.liuwa-thumb').count()!==7)throw Error('batch reception lost an image');
+  await page.evaluate(data=>window.__toolbarEvents.capture({images:[{mime:'image/png',data},{mime:'image/png',data}]}),png);
+  if(await page.locator('.liuwa-thumb').count()!==7)throw Error('an over-capacity batch was partially accepted');
+  if(!/2 张图.*8 张图/.test(await page.locator('#liuwaStatus').textContent()))throw Error('over-capacity batch did not explain the whole rejection');
+  await page.evaluate(data=>window.__toolbarEvents.capture({mime:'image/png',data}),png);
+  if(await page.locator('.liuwa-thumb').count()!==8)throw Error('the final free image slot was rejected');
+  for(let i=0;i<7;i++)await page.locator('#liuwaDelete').click();
   const position=await page.evaluate(()=>({image:document.querySelector('#liuwaShots').getBoundingClientRect().bottom,bar:document.querySelector('.liuwa-command-bar').getBoundingClientRect().top}));
   if(position.image>position.bar)throw Error('images are still below the toolbar');
   await page.locator('#liuwaSend').click();
@@ -57,7 +71,18 @@ async(page)=>{
   await page.waitForFunction(()=>!document.querySelector('#quickAnswerLanguage').disabled);
   await page.locator('#quickIdentity').selectOption('interviewer');
   await page.waitForFunction(()=>!document.querySelector('#quickIdentity').disabled);
-  await page.locator('#quickCaptureMode').selectOption('full');await page.locator('#quickDisplay').selectOption('2');
+  await page.locator('#quickCaptureMode').selectOption('full');
+  await page.waitForFunction(()=>!document.querySelector('#quickDisplay').disabled);
+  await page.locator('#quickDisplay input[value="2"]').check();
+  await page.waitForFunction(()=>!document.querySelector('#quickDisplay').disabled);
+  if(await page.locator('#quickDisplay input:checked').count()!==2)throw Error('two displays cannot be selected together');
+  const capturePatch=await page.evaluate(()=>window.__toolbarCalls.filter(c=>c[0]==='captureOptions').at(-1)?.[1]);
+  if(JSON.stringify(capturePatch?.displayIds)!==JSON.stringify(['1','2']))throw Error('displayIds were not sent as a string array');
+  await page.locator('#quickDisplay input[value="1"]').uncheck();
+  await page.waitForFunction(()=>!document.querySelector('#quickDisplay').disabled);
+  await page.locator('#quickDisplay input[value="2"]').click();
+  if(!await page.locator('#quickDisplay input[value="2"]').isChecked())throw Error('the last display can be deselected');
+  if(!/至少选择一个/.test(await page.locator('#quickSettingsStatus').textContent()))throw Error('empty display selection lacks a hint');
   await page.waitForFunction(()=>/vision-a|text-b/.test(document.querySelector('#quickModelSummary')?.textContent||''));
   await page.locator('[data-theme-mode="dark"]').click();
   const dark=await page.locator('.liuwa-reader').evaluate(e=>({bg:getComputedStyle(e).backgroundColor,ink:getComputedStyle(e).color}));

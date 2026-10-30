@@ -22,6 +22,7 @@
       "config.example.json",
       "assets/**"
     ],
+    "beforePack": "main/build-backend.js",
     "extraResources": [
       {
         "from": "../web",
@@ -30,6 +31,10 @@
       {
         "from": "native",
         "to": "native"
+      },
+      {
+        "from": "backend/left-or-right-gateway",
+        "to": "backend"
       }
     ],
     "mac": {

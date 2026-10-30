@@ -97,6 +97,9 @@ test('the overlay passes clicks through by default and only captures them while 
   assert.equal(api.isInteractive(),false);
   assert.ok(events.some(([event,value])=>event==='focusable'&&value===false));
   assert.ok(events.some(([event,value])=>event==='cockpit:armed'&&value===false));
+  const mouseEvents = events.filter(([event])=>event==='ignoreMouse');
+  assert.equal(mouseEvents.length,3);
+  assert.ok(mouseEvents.every(([, , options])=>options.forward===false));
 });
 
 test('preferences write outside app.asar and merge with existing gateway configuration',()=>{

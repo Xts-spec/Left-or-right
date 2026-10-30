@@ -200,36 +200,42 @@ function renderPending() {
   syncEmpty();
 }
 
-function addShot(dataUrl, generation = sessionGeneration) {
+function addShots(dataUrls, generation = sessionGeneration) {
   // 截图和文件读取是异步的：重置后到达的旧结果不能落进新会话。
-  if (generation !== sessionGeneration) return;
+  if (generation !== sessionGeneration || !dataUrls.length) return;
   if (savingSession) {
     setStatus("正在保存会话，请稍候。");
     return;
   }
-  // 仅当真正在流式生成时才禁止添加截图；历史残留的 is-busy/is-stopped 样式不再阻塞。
   if (streaming) {
-    setStatus("");
+    setStatus("正在生成回答，请结束后重新截图。");
     return;
   }
-  if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(dataUrl)) {
+  if (dataUrls.some(dataUrl=>!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(dataUrl))) {
     setStatus("请选择 PNG、JPEG、WebP 或 GIF 图片。");
     return;
   }
-  if (pending.length >= 8) {
-    setStatus("一次最多带 8 张图。");
+  if (pending.length + dataUrls.length > 8) {
+    setStatus(`本次包含 ${dataUrls.length} 张图，当前已有 ${pending.length} 张；一次最多带 8 张图，请先删图后重新截图。`);
     return;
   }
-  pending.push({ id: String(nextShotId), dataUrl });
+  for(const dataUrl of dataUrls) pending.push({ id: String(nextShotId++), dataUrl });
   shotsExpanded = true;
-  nextShotId += 1;
   renderPending();
   setStatus("");
 }
 
-function addShotFromBase64(mime, data, generation = sessionGeneration) {
-  const type = mime || "image/png";
-  addShot(`data:${type};base64,${data}`, generation);
+function addShot(dataUrl, generation = sessionGeneration) {
+  addShots([dataUrl], generation);
+}
+
+function receiveCapture(payload, generation = sessionGeneration) {
+  if(generation !== sessionGeneration)return;
+  const images=Array.isArray(payload?.images) ? payload.images : payload?.data ? [payload] : [];
+  if(images.some(image=>!image || typeof image.data !== 'string' || !image.data)) {
+    setStatus('截图数据不完整，请重新截图。');return;
+  }
+  addShots(images.map(image=>`data:${image.mime || 'image/png'};base64,${image.data}`),generation);
 }
 
 function readImageFile(file) {
@@ -633,6 +639,9 @@ function applyTheme(cfg) {
 }
 
 function wireDesktop(cockpit) {
+  document.body.classList.remove("liuwa-armed");
+  document.body.inert = true;
+  let receivedArmedState=false;
   document.documentElement.classList.add("liuwa-host");
   document.body.classList.add("liuwa-shell");
   cockpit.onHotkeys?.(applyHotkeyHints);
@@ -642,12 +651,7 @@ function wireDesktop(cockpit) {
   cockpit.onDeleteLastShot?.(deleteLastShot);
   cockpit.onTheme?.(applyTheme);
   if (typeof cockpit.onCapture === "function") {
-    // 主进程截图可能晚于重置返回：记录发起时的世代，重置后丢弃。
-    const generation = sessionGeneration;
-    cockpit.onCapture((payload) => {
-      if (!payload || !payload.data) return;
-      addShotFromBase64(payload.mime, payload.data, generation);
-    });
+    cockpit.onCapture((payload) => receiveCapture(payload, sessionGeneration));
   }
   if (typeof cockpit.onCaptureError === "function") {
     cockpit.onCaptureError((payload) => {
@@ -678,11 +682,17 @@ function wireDesktop(cockpit) {
   }
   if (typeof cockpit.onArmed === "function") {
     cockpit.onArmed((value) => {
+      receivedArmedState=true;
       document.body.classList.toggle("liuwa-armed", Boolean(value));
+      document.body.inert = !value;
     });
   }
   if (typeof cockpit.getConfig === "function") {
     cockpit.getConfig().then((cfg) => {
+      if(!receivedArmedState) {
+        document.body.classList.toggle('liuwa-armed', Boolean(cfg?.armed));
+        document.body.inert = !cfg?.armed;
+      }
       applyHotkeyHints(cfg || {});
       applyTheme(cfg || {});
       applyDisplay(cfg.display || {});

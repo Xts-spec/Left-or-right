@@ -340,7 +340,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-WEB_ROOT = Path(__file__).resolve().parents[2] / "web"
+WEB_ROOT = Path(os.environ.get("ZUOYOU_WEB_ROOT") or Path(__file__).resolve().parents[2] / "web")
 WEB_INDEX = WEB_ROOT / "index.html"
 WEB_SETTINGS = WEB_ROOT / "settings.html"
 WEB_COCKPIT = WEB_ROOT / "cockpit.html"
