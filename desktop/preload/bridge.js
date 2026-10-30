@@ -30,6 +30,7 @@ const api = {
 };
 
 contextBridge.exposeInMainWorld('cockpit', api);
+ipcRenderer.on('app:privacy-hidden', () => window.dispatchEvent(new Event('app:privacy-hidden')));
 
 const bootConfig = ipcRenderer.sendSync('cockpit:getConfigSync');
 contextBridge.exposeInMainWorld('__GATEWAY_URL__', bootConfig.gatewayUrl || '');

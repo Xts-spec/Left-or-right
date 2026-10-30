@@ -37,6 +37,7 @@ def test_backend_builder_rejects_non_native_target_before_pyinstaller(monkeypatc
     other_platform = "darwin" if sys.platform == "win32" else "win32"
     monkeypatch.setattr(sys, "argv", ["build_desktop_backend.py", "--platform", other_platform])
     called = []
+    monkeypatch.setattr(builder, "native_architecture", lambda: "x64")
     monkeypatch.setattr(builder.subprocess, "run", lambda *args, **kwargs: called.append(args))
     with pytest.raises(SystemExit) as error:
         builder.main()

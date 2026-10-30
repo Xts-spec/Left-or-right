@@ -178,7 +178,7 @@ export function installProtectedControls() {
   document.addEventListener("change", changed, true);
   document.addEventListener("focusin", focusChanged, true);
   document.addEventListener("visibilitychange", dismiss);
-  for (const type of ["blur", "resize", "hashchange", "popstate"]) window.addEventListener(type, dismiss);
+  for (const type of ["blur", "resize", "hashchange", "popstate", "app:privacy-hidden"]) window.addEventListener(type, dismiss);
   return () => {
     close(); release.disconnect();
     document.removeEventListener("pointerdown", pointerDown, true);
@@ -189,7 +189,7 @@ export function installProtectedControls() {
     document.removeEventListener("change", changed, true);
     document.removeEventListener("focusin", focusChanged, true);
     document.removeEventListener("visibilitychange", dismiss);
-    for (const type of ["blur", "resize", "hashchange", "popstate"]) window.removeEventListener(type, dismiss);
+    for (const type of ["blur", "resize", "hashchange", "popstate", "app:privacy-hidden"]) window.removeEventListener(type, dismiss);
   };
 }
 

@@ -13,11 +13,12 @@ function createWindowVisibility({ getMainWindow, getSettingsWindow, setInteracti
     setInteractive(Boolean(held && !capturing && alive(main) && main.isVisible()));
   };
   const show = windows => windows.filter(alive).forEach(window => window.showInactive());
+  const hide = window => { window.webContents?.send('app:privacy-hidden'); window.hide(); };
   function hideAll() {
     revision += 1;
     hidden = capturing ? captureWindows.filter(alive) : owned().filter(window => window.isVisible());
     setInteractive(false);
-    owned().forEach(window => window.hide());
+    owned().forEach(hide);
   }
   return {
     version() { return revision; },
@@ -37,7 +38,7 @@ function createWindowVisibility({ getMainWindow, getSettingsWindow, setInteracti
       captureWindows = owned().filter(window => window.isVisible());
       const snapshot = { windows: [...captureWindows], revision };
       setInteractive(false);
-      captureWindows.forEach(window => window.hide());
+      captureWindows.forEach(hide);
       return snapshot;
     },
     endCapture(snapshot) {
