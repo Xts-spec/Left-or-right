@@ -23,6 +23,37 @@ async (page) => {
   if (!await specialty.isVisible() || await specialty.evaluate(select => select.tagName) !== 'SELECT') throw Error('The bound SELECT was replaced or hidden.');
   if (await menu.locator('[role="group"]').count() !== 3) throw Error('Study option groups were not retained.');
   if (await menu.locator('[role="option"]').count() < 33) throw Error('The complete shared study list is missing.');
+  const opacityChecks = await page.evaluate(() => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute('data-theme');
+    const previousStyle = document.body.getAttribute('style');
+    const channels = color => (color.match(/[\d.]+/g) || []).map(Number);
+    const luminance = color => channels(color).slice(0,3).map(value => {
+      const c=value/255;return c<=.04045 ? c/12.92 : ((c+.055)/1.055)**2.4;
+    }).reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0);
+    const checks=[];
+    for(const opacity of [.15,.3]) {
+      document.body.style.setProperty('--panel-opacity',String(opacity));
+      document.body.style.setProperty('--surface',`rgba(255,255,255,${opacity})`);
+      document.body.style.setProperty('--ink','rgba(25,37,69,.2)');
+      for(const theme of ['light','dark','transparent-black','transparent-white']) {
+        root.dataset.theme=theme;
+        const popup=document.querySelector('.protected-select-menu');
+        const style=getComputedStyle(popup);
+        const option=getComputedStyle(popup.querySelector('.protected-select-option'));
+        const group=getComputedStyle(popup.querySelector('.protected-select-group'));
+        const background=luminance(style.backgroundColor);
+        const contrast=foreground=>(Math.max(luminance(foreground),background)+.05)/(Math.min(luminance(foreground),background)+.05);
+        const bgChannels=channels(style.backgroundColor);
+        const dark=['dark','transparent-white'].includes(theme);
+        checks.push({opacity,theme,menuAlpha:bgChannels.length>3?bgChannels[3]:1,elementOpacity:style.opacity,optionContrast:contrast(option.color),groupContrast:contrast(group.color),correctTone:dark?background<.1:background>.8});
+      }
+    }
+    if(previousTheme===null)root.removeAttribute('data-theme');else root.setAttribute('data-theme',previousTheme);
+    if(previousStyle===null)document.body.removeAttribute('style');else document.body.setAttribute('style',previousStyle);
+    return checks;
+  });
+  if(opacityChecks.some(check=>check.menuAlpha!==1 || check.elementOpacity!=='1' || check.optionContrast<4.5 || check.groupContrast<4.5 || !check.correctTone))throw Error(`Protected menu contrast or opacity failed: ${JSON.stringify(opacityChecks)}`);
   await menu.getByRole('option', {name:'行测',exact:true}).click();
   if (await specialty.inputValue() !== '行测' || !await language.isDisabled()) throw Error('DOM choice did not update the original study binding.');
   if (await page.evaluate(() => window.__protectedChanges) !== 1 || await menu.count()) throw Error('Choice dispatched duplicate changes or left the popup open.');
@@ -86,5 +117,5 @@ async (page) => {
   await page.evaluate(() => { document.body.classList.remove('liuwa-armed'); document.body.inert = true; });
   await page.waitForFunction(() => !document.querySelector('.protected-select-menu'));
   if (errors.length) throw Error(errors.join(';'));
-  return {passed:true,sameWindowPopup:true,selectBindingsPreserved:true,groupsAndDisabledOptions:true,keyboardAndEscape:true,noDuplicateChange:true,literalLabels:true,longListAndMobile:true,ordinaryBrowserUnchanged:true,gateReleaseClosesPopup:true,errors};
+  return {passed:true,sameWindowPopup:true,opaqueMenusAcrossThemes:true,menuContrastChecks:opacityChecks.length,selectBindingsPreserved:true,groupsAndDisabledOptions:true,keyboardAndEscape:true,noDuplicateChange:true,literalLabels:true,longListAndMobile:true,ordinaryBrowserUnchanged:true,gateReleaseClosesPopup:true,errors};
 }

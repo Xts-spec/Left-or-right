@@ -2299,18 +2299,29 @@ html.transparent-white {
   overflow-y: auto;
 }
 
-.liuwa-turn.is-stream .liuwa-stream::after {
-  content: "▍";
-  margin-left: 2px;
-  color: var(--accent);
+.liuwa-analysis-status {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 13px;
 }
-
-.liuwa-turn.is-stream .liuwa-stream:empty::before {
-  content: attr(data-waiting);
-  margin-right: 2px;
-  color: var(--accent);
-  letter-spacing: 2px;
-  animation: liuwa-thinking 1.2s ease-in-out infinite;
+.liuwa-analysis-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: liuwa-analyzing .8s linear infinite;
+}
+@keyframes liuwa-analyzing { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .liuwa-analysis-spinner { animation: none; }
 }
 
 /* Markdown 排版（.md 容器） */
@@ -2477,11 +2488,6 @@ html.transparent-white {
 
 .md strong { font-weight: 600; }
 .md del { color: var(--muted); }
-
-@keyframes liuwa-thinking {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
 
 .liuwa-turn.is-error p {
   background: var(--red-soft);
@@ -2749,20 +2755,6 @@ body:not(.is-empty) .liuwa-shortcuts { margin-top: 2px; padding-top: 8px; }
   color: var(--accent);
   font-size: 12px;
 }
-
-.liuwa-stop {
-  justify-self: end;
-  padding: 4px 12px;
-  border: 1px solid var(--accent);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.5);
-  color: var(--accent);
-  font-size: 12px;
-  line-height: 1.4;
-  cursor: pointer;
-  user-select: none;
-}
-.liuwa-stop:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) { background: var(--accent); color: #fff; }
 
 .liuwa-turn.is-stopped .liuwa-stream {
   border-style: dashed;
@@ -3657,8 +3649,7 @@ body.liuwa-compact .liuwa-dock { min-height: 0; }
 .liuwa-page:not(.is-empty) .liuwa-toolbar { grid-column: 1; grid-row: 1; }
 .liuwa-page:not(.is-empty) .liuwa-shortcut-primary { display: none; }
 .liuwa-page:not(.is-empty) .liuwa-shots,
-.liuwa-page:not(.is-empty) .liuwa-status,
-.liuwa-page:not(.is-empty) .liuwa-stop { grid-column: 1 / -1; }
+.liuwa-page:not(.is-empty) .liuwa-status { grid-column: 1 / -1; }
 html[data-layout="narrow"] { --reader-width: 560px; }
 html[data-layout="wide"] { --reader-width: 1000px; }
 .liuwa-compact #liuwaToggleShots { display: none; }
@@ -3747,9 +3738,8 @@ body.liuwa-page.liuwa-compact .liuwa-shots { display: flex; }
   box-shadow: none;
 }
 .liuwa-feedback { grid-row: 4; display: flex; align-items: center; gap: 12px; min-height: 0; }
-.liuwa-feedback:has(.liuwa-status:empty):has(.liuwa-stop[hidden]) { display: none; }
+.liuwa-feedback:has(.liuwa-status:empty) { display: none; }
 .liuwa-feedback .liuwa-status { margin: 0; padding: 2px 6px; color: var(--ink); font-size: 11px; }
-.liuwa-feedback .liuwa-stop { position: static; padding: 3px 7px; white-space: nowrap; }
 .liuwa-command-bar .liuwa-display-panel {
   top: calc(100% + 12px); bottom: auto; right: 0;
   width: 340px; max-width: calc(100vw - 24px);

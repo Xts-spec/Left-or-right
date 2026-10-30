@@ -15,7 +15,6 @@ const idle = document.querySelector("#liuwaIdle");
 const shots = document.querySelector("#liuwaShots");
 const statusNode = document.querySelector("#liuwaStatus");
 const hintCapture = document.querySelector("#hintCapture");
-const stopBtn = document.querySelector("#liuwaStop");
 const pagination = document.querySelector("#liuwaPagination");
 const readingPrev = document.querySelector("#liuwaReadingPrev");
 const readingNext = document.querySelector("#liuwaReadingNext");
@@ -302,16 +301,29 @@ function appendUserTurn(images, text, carriedCount = 0) {
   return article;
 }
 
-function appendAssistantTurn() {
+function appendAssistantTurn({ generating = false } = {}) {
   if (sections) { sections.value = ''; delete sections.dataset.sections; }
   const tabs = document.querySelector('#liuwaAnswerTabs');
   if(tabs) { tabs.hidden = true; tabs.replaceChildren(); delete tabs.dataset.signature; }
   // 主面板只展示当前题解；历史保留在 history，不能挤占下一题的阅读高度。
   thread.querySelectorAll(".liuwa-turn").forEach((turn) => turn.remove());
   const article = document.createElement("article");
-  article.className = "liuwa-turn is-assistant is-stream";
+  article.className = `liuwa-turn is-assistant${generating ? " is-stream" : ""}`;
+  if (generating) {
+    const waiting = document.createElement("div");
+    waiting.className = "liuwa-analysis-status";
+    waiting.setAttribute("role", "status");
+    const spinner = document.createElement("span");
+    spinner.className = "liuwa-analysis-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = "正在分析题目…";
+    waiting.append(spinner, label);
+    article.append(waiting);
+  }
   const body = document.createElement("div");
   body.className = "liuwa-stream md";
+  body.hidden = generating;
   article.append(body);
   thread.append(article);
   resetReading();
@@ -485,22 +497,27 @@ async function runChat() {
   }, 600_000);
   document.body.classList.add("is-busy");
   syncQuestionSelector();
-  setStatus("正在分析题目…");
+  setStatus("");
   shots.querySelectorAll("[data-remove]").forEach((button) => { button.disabled = true; });
-  if (stopBtn) stopBtn.hidden = false;
   const userTurn = appendUserTurn(unsent, "", images.length - unsent.length);
   rememberReadingPosition();
-  const streamNode = appendAssistantTurn();
+  const streamNode = appendAssistantTurn({ generating: true });
   const assistantTurn = streamNode.parentElement;
+  const waiting = assistantTurn.querySelector('.liuwa-analysis-status');
   syncEmpty();
   let reply = "";
+  let hasBodyOutput = false;
   let flushTimer = null;
   const flush = (complete = false) => {
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
     const answer = renderAnswer(reply, streamNode, {complete});
-    if (answer.full.trim() && !streamNode.dataset.hasContent) {
-      streamNode.dataset.hasContent = 'true';
-    }
+    const hasContent = Boolean(answer.full.replace(/^#{1,6}[^\n]*$/gm, '').trim());
+    hasBodyOutput = hasBodyOutput || hasContent;
+    waiting.hidden = hasBodyOutput || complete;
+    streamNode.hidden = !hasBodyOutput && !complete;
+    if (hasContent) streamNode.dataset.hasContent = 'true';
+    if (!hasBodyOutput) document.querySelector('#liuwaAnswerTabs').hidden = true;
+    if (pagination) pagination.hidden = !hasBodyOutput;
     syncReadingControls();
   };
   const commitTurn = (complete = true) => {
@@ -560,8 +577,8 @@ async function runChat() {
       }),
     });
     await readSse(response, onDelta, controller.signal);
-    if (!reply.trim()) throw new Error("模型没有返回内容，请重试或检查模型接入配置。");
     flush(true);
+    if (!hasBodyOutput) throw new Error("模型没有返回内容，请重试或检查模型接入配置。");
     assistantTurn.classList.remove("is-stream");
     commitTurn();
     setStatus("");
@@ -575,7 +592,7 @@ async function runChat() {
       : /RemoteProtocolError|incomplete chunked read|peer closed connection/i.test(rawMessage)
         ? "模型连接中断，可重新处理当前截图。"
         : rawMessage;
-    if (reply.trim()) {
+    if (hasBodyOutput) {
       // 已经流出一大段内容：不管是主动停止还是中途报错，都保留下来。
       // 之前只有「主动停止」保留，报错会把用户眼看着生成的整段解析删掉。
       finalizeStopped(streamNode, reply, assistantTurn, aborted ? "（已中断）" : `（中断：${message}）`);
@@ -589,13 +606,10 @@ async function runChat() {
     }
   } finally {
     clearTimeout(timeoutGuard);
-    // 只有当前这轮还是「活跃请求」时才清全局状态。停止后立刻再发，
-    // 旧请求的 finally 晚到会把新请求的 streaming/stopBtn 一起清掉，
-    // 新回答看着像没在生成、也停不下来。
+    // 旧请求的收尾不能清除新一轮生成状态。
     if (activeAbort === controller) {
       streaming = false;
       activeAbort = null;
-      if (stopBtn) stopBtn.hidden = true;
       document.body.classList.remove("is-busy");
     }
     if (assistantTurn.isConnected) assistantTurn.classList.remove("is-stream");
@@ -646,7 +660,7 @@ function wireDesktop(cockpit) {
   document.documentElement.classList.add("liuwa-host");
   document.body.classList.add("liuwa-shell");
   cockpit.onHotkeys?.(applyHotkeyHints);
-  cockpit.onNewQuestion?.(newQuestion);
+  cockpit.onNewQuestion?.(resetView);
   cockpit.onReset?.(resetView);
   cockpit.onClearShots?.(clearShots);
   cockpit.onDeleteLastShot?.(deleteLastShot);
@@ -741,7 +755,6 @@ shots?.addEventListener("keydown", (event) => {
   stepActiveShot(event.key === "ArrowRight" ? 1 : -1);
 });
 
-stopBtn?.addEventListener("click", stopChat);
 readingPrev?.addEventListener("click", () => stepReading(-1));
 readingNext?.addEventListener("click", () => stepReading(1));
 document.querySelector('#liuwaSend')?.addEventListener('click',sendChat);
@@ -824,9 +837,7 @@ async function refreshContext() {
     const configResponse = await fetch(`${state.apiOrigin}/api/config/status`, { headers: authHeaders(), cache: "no-store", signal: AbortSignal.timeout(3500) });
     if (!configResponse.ok) throw new Error("请在设置页检查服务连接。");
     const config = await configResponse.json();
-    const mock = config.llm_provider === "mock" || !config.llm_api_key_configured || !config.llm_base_url_configured;
-    currentModel = mock ? "" : config.llm_model || "";
-    if (mock) setStatus("演示模式：未连接真实 AI，请到设置页配置模型。");
+    currentModel = config.llm_provider === "mock" ? "" : config.llm_model || "";
   } catch (error) {
     setStatus("本地服务未连接，请启动网关。");
   } finally {

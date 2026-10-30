@@ -1,22 +1,40 @@
 .protected-select-menu {
+  --protected-menu-background: #fbfcff;
+  --protected-menu-foreground: #192545;
+  --protected-menu-muted: #52617a;
+  --protected-menu-border: #dfe6f3;
+  --protected-menu-hover: #e8efff;
+  --protected-menu-disabled: #6c778b;
   position: fixed;
   z-index: 40;
   box-sizing: border-box;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 6px;
-  border: 1px solid var(--line, #dfe6f3);
+  border: 1px solid var(--protected-menu-border);
   border-radius: 12px;
-  background: var(--surface, #f9fafb);
-  color: var(--ink, #192545);
+  background: var(--protected-menu-background);
+  color: var(--protected-menu-foreground);
+  opacity: 1;
+  backdrop-filter: none;
   box-shadow: 0 8px 24px rgb(15 23 42 / 12%);
   font: inherit;
   text-align: left;
   scrollbar-width: thin;
 }
+html[data-theme="dark"] .protected-select-menu,
+html[data-theme="transparent-white"] .protected-select-menu,
+html.transparent-white .protected-select-menu {
+  --protected-menu-background: #1f2b40;
+  --protected-menu-foreground: #f1f5fd;
+  --protected-menu-muted: #c0cadd;
+  --protected-menu-border: #52617a;
+  --protected-menu-hover: #344765;
+  --protected-menu-disabled: #a8b6ce;
+}
 .protected-select-group {
   padding: 8px 10px 4px;
-  color: var(--muted, #52617a);
+  color: var(--protected-menu-muted);
   font-size: 11px;
   line-height: 1.5;
 }
@@ -45,14 +63,15 @@
 .protected-select-menu .protected-select-option[aria-selected="true"] {
   font-weight: 600;
 }
-.protected-select-menu .protected-select-option:focus,
-.protected-select-menu .protected-select-option:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
+.protected-select-menu .protected-select-option:not(:disabled):focus,
+.protected-select-menu .protected-select-option:not(:disabled):hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
   outline: none;
-  background: var(--accent-soft, #edf0f5);
-  color: var(--ink, #192545);
+  background: var(--protected-menu-hover);
+  color: var(--protected-menu-foreground);
 }
 .protected-select-menu .protected-select-option:disabled {
-  opacity: .45;
+  color: var(--protected-menu-disabled);
+  opacity: 1;
   cursor: not-allowed;
 }
 @media (pointer: coarse) {

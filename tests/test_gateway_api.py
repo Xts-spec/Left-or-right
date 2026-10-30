@@ -3412,7 +3412,7 @@ def test_old_settings_files_receive_study_defaults(tmp_path, monkeypatch):
     (tmp_path / "ui_settings.json").write_text('{"jd_text": "existing job"}', encoding="utf-8")
     settings = client.get("/api/ui/settings").json()
     assert settings["jd_text"] == "existing job"
-    assert settings["study_answer_style"] == "walkthrough"
+    assert settings["study_answer_style"] == "solution"
     assert settings["study_goal"] == "看懂眼前这段代码或报错"
 
 

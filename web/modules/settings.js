@@ -20,7 +20,7 @@ const studyFields = {
   assistant_role: $("#studyAssistantRole"),
 };
 const shortcutGroups = [
-  ["截图与对话", { captureRegion: "截图", captureScreen: "全屏截图", sendChat: "处理截图", newQuestion: "新对话", resetView: "重置视图", deleteLastShot: "删除最后一张截图", clearShots: "清空截图" }],
+  ["截图与对话", { captureRegion: "截图", captureScreen: "全屏截图", sendChat: "处理截图", newQuestion: "新对话", resetView: "重置对话", deleteLastShot: "删除最后一张截图", clearShots: "清空截图" }],
   ["阅读", { readPrev: "回答上一页", readNext: "回答下一页", scrollUp: "回答内容上滚", scrollDown: "回答内容下滚" }],
   ["窗口", { toggleWindow: "隐藏 / 显示", toggleVisible: "按住操作面板", toggleCompact: "紧凑 / 展开", moveUp: "窗口上移", moveDown: "窗口下移", moveLeft: "窗口左移", moveRight: "窗口右移", opacityDown: "降低不透明度", opacityUp: "提高不透明度", zoomOut: "缩小字号", zoomReset: "还原字号", zoomIn: "放大字号", quitApp: "退出应用" }],
 ];

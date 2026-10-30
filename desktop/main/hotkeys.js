@@ -15,7 +15,7 @@ const BINDINGS = [
   { accelerator: 'CommandOrControl+B', action: 'toggleWindow', label: '显示/隐藏' },
   { accelerator: 'CommandOrControl+Q', action: 'quitApp', label: '退出' },
   { accelerator: 'CommandOrControl+N', action: 'newQuestion', label: '新对话' },
-  { accelerator: 'CommandOrControl+R', action: 'resetView', label: '重置视图' },
+  { accelerator: 'CommandOrControl+R', action: 'resetView', label: '重置对话' },
   { accelerator: 'CommandOrControl+L', action: 'deleteLastShot', label: '删除最后一张截图' },
   { accelerator: 'CommandOrControl+Shift+Backspace', action: 'clearShots', label: '清空截图' },
 
