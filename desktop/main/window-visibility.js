@@ -1,13 +1,13 @@
 'use strict';
 
-function createWindowVisibility({ getMainWindow, getSettingsWindow, setInteractive }) {
+function createWindowVisibility({ getMainWindow, getWindows, setInteractive }) {
   let held = false;
   let capturing = false;
   let revision = 0;
   let hidden = [];
   let captureWindows = [];
   const alive = window => window && !window.isDestroyed();
-  const owned = () => [getMainWindow(), getSettingsWindow()].filter(alive);
+  const owned = () => getWindows().filter(alive);
   const applyInteraction = () => {
     const main = getMainWindow();
     setInteractive(Boolean(held && !capturing && alive(main) && main.isVisible()));

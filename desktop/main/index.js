@@ -2,7 +2,7 @@
 
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
-const { app, ipcMain, Menu, shell, nativeTheme, systemPreferences, screen, dialog } = require('electron');
+const { app, ipcMain, Menu, shell, nativeTheme, systemPreferences, screen, dialog, BrowserWindow } = require('electron');
 const { loadConfig, saveConfig } = require('./config');
 const {
   createWindow,
@@ -27,7 +27,7 @@ const { validateCaptureOptions, captureWindowDisplay } = require('./capture-opti
 const { selectRegion, cancelSelection } = require('./selector');
 const { ensureBackend, stopBackend } = require('./backend');
 const { startCommandKeyMonitor } = require('./command-key');
-const { openSettingsWindow, getSettingsWindow } = require('./settings-window');
+const { openSettingsWindow } = require('./settings-window');
 const { createWindowVisibility } = require('./window-visibility');
 
 app.setName('左右');
@@ -40,7 +40,7 @@ let lastScreenshotTime = 0;
 let stopCommandKeyMonitor = null;
 const visibility = createWindowVisibility({
   getMainWindow: () => win,
-  getSettingsWindow,
+  getWindows: () => BrowserWindow.getAllWindows(),
   setInteractive: held => setInteractive(win, held, {restore: !held}),
 });
 // 一次截图流程（框选 → 抓 → 恢复窗口）进行中时，再按截图键直接忽略。

@@ -9,9 +9,9 @@ function setup(){
     record.webContents={send:channel=>{assert.equal(channel,'app:privacy-hidden');record.hiddenSignals+=1;}};
     return record;
   };
-  const main=window(true),settings=window(true),armed=[];
-  const api=createWindowVisibility({getMainWindow:()=>main,getSettingsWindow:()=>settings,setInteractive:value=>armed.push(value)});
-  return {main,settings,armed,api};
+  const main=window(true),settings=window(true),armed=[],windows=[main,settings];
+  const api=createWindowVisibility({getMainWindow:()=>main,getWindows:()=>windows,setInteractive:value=>armed.push(value)});
+  return {main,settings,armed,api,windows,window};
 }
 
 test('one visibility action hides both app windows, and restores only previously visible ones',()=>{
@@ -23,6 +23,12 @@ test('one visibility action hides both app windows, and restores only previously
 test('hiding and capture explicitly dismiss private popups in every owned window',()=>{
   const {main,settings,api}=setup();api.hideAll();assert.equal(main.hiddenSignals,1);assert.equal(settings.hiddenSignals,1);
   api.toggle();api.beginCapture();assert.equal(main.hiddenSignals,2);assert.equal(settings.hiddenSignals,2);
+});
+
+test('auxiliary app windows are included automatically rather than relying on a fixed two-window list',()=>{
+  const {main,settings,api,windows,window}=setup();const auxiliary=window(true);windows.push(auxiliary);
+  api.hideAll();assert.ok(windows.every(w=>!w.visible));assert.equal(auxiliary.hiddenSignals,1);
+  api.toggle();assert.ok(main.visible&&settings.visible&&auxiliary.visible);
 });
 
 test('holding the modifier never reveals a privacy-hidden app',()=>{
