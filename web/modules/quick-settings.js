@@ -8,6 +8,8 @@ const status = byId('quickSettingsStatus');
 const notice = text => { if(status) status.textContent = text; };
 const fields = {study_language:'quickProgrammingLanguage',answer_language:'quickAnswerLanguage',assistant_role:'quickIdentity'};
 let modelsLoading = false;
+let modelProfiles = [];
+let activeProfileId = '';
 let ui = null;
 let origin = '';
 
@@ -40,35 +42,66 @@ function hydrateUi(data) {
 }
 function hydrateCapture(config) {
   const options=config.captureOptions;
-  const list=byId('quickDisplay');
-  const legend=document.createElement('legend');legend.textContent='运行显示器';
-  list.replaceChildren(legend);
+  const select=byId('quickDisplay');
   if(!options) {
-    byId('quickCaptureMode').disabled=true;list.disabled=true;
-    const note=document.createElement('p');note.textContent='桌面版可选择显示器';list.append(note);
+    byId('quickCaptureMode').disabled=true;select.disabled=true;
+    select.replaceChildren(new Option('桌面版可选择显示器',''));
     return;
   }
   byId('quickCaptureMode').value=options.mode;byId('quickCaptureMode').disabled=false;
-  const selected=String(options.displayId);
-  for(const display of options.displays) {
-    const label=document.createElement('label');
-    const input=document.createElement('input');input.type='radio';input.name='quickRunDisplay';input.value=String(display.id);input.dataset.displayId=String(display.id);input.checked=selected===String(display.id);
-    const text=document.createElement('span');text.textContent=`${display.label} · ${display.width}×${display.height}`;
-    label.append(input,text);list.append(label);
+  select.replaceChildren(...options.displays.map(display=>new Option(`${display.label} · ${display.width}×${display.height}`,String(display.id))));
+  select.value=String(options.displayId);
+  select.disabled=false;
+}
+function hydrateModels(data) {
+  modelProfiles=data.profiles || [];
+  activeProfileId=data.active_profile_id || '';
+  const select=byId('quickModel');
+  const names=new Map();
+  for(const profile of modelProfiles) {
+    const name=profile.name || profile.llm_model;
+    names.set(name,(names.get(name) || 0)+1);
   }
-  list.disabled=false;
+  select.replaceChildren(...modelProfiles.map(profile=>{
+    const name=profile.name || profile.llm_model;
+    let label=name===profile.llm_model ? name : `${name} · ${profile.llm_model}`;
+    if(names.get(name)>1) {
+      let host=profile.llm_base_url || '';
+      try {host=new URL(host).host;} catch {}
+      label+=` · ${host}`;
+    }
+    return new Option(label,profile.id);
+  }));
+  if(!modelProfiles.length)select.replaceChildren(new Option('暂无已保存模型',''));
+  select.value=activeProfileId;
+  select.disabled=modelsLoading || !modelProfiles.length;
+}
+function setModelBusy(busy) {
+  modelsLoading=busy;
+  byId('quickRefreshModels').disabled=busy;
+  byId('quickModel').disabled=busy || !modelProfiles.length;
 }
 async function loadModels() {
-  if(modelsLoading)return;modelsLoading=true;byId('quickRefreshModels').disabled=true;
+  if(modelsLoading)return;
+  setModelBusy(true);
+  try {hydrateModels(await request('/api/config/llm/profiles'));}
+  catch(error) {notice(`模型列表读取失败：${error.message}`);}
+  finally {setModelBusy(false);}
+}
+async function activateModel() {
+  const select=byId('quickModel');
+  const profileId=select.value;
+  if(modelsLoading || !modelProfiles.some(profile=>profile.id===profileId))return;
+  const previous=activeProfileId;
+  setModelBusy(true);
   try {
-    const data=await request('/api/config/models');
-    const summary=byId('quickModelSummary');
-    if(summary) summary.textContent = data.interview_model
-      ? `${data.interview_model}${data.screenshot_model && data.screenshot_model !== data.interview_model ? ` · 截图 ${data.screenshot_model}` : ''}`
-      : '尚未配置模型';
-    if(data.warning)notice(data.warning);
-  } catch(error) {notice(`模型状态读取失败：${error.message}`);}
-  finally {modelsLoading=false;byId('quickRefreshModels').disabled=false;}
+    hydrateModels(await request('/api/config/llm/activate',{profile_id:profileId}));
+    notice('已保存。');
+  } catch(error) {
+    try {hydrateModels(await request('/api/config/llm/profiles'));}
+    catch {select.value=previous;}
+    notice(`模型切换失败：${error.message}`);
+  } finally {setModelBusy(false);}
 }
 async function reloadSettings() {
   try {hydrateUi(await request('/api/ui/settings'));notice('修改后自动保存。');}
@@ -93,16 +126,17 @@ let captureSaving=false;
 async function saveCaptureOptions(patch) {
   if(captureSaving)return;
   captureSaving=true;byId('quickCaptureMode').disabled=true;byId('quickDisplay').disabled=true;
-  try {const data=await window.cockpit.setCaptureOptions(patch);hydrateCapture({captureOptions:data});notice(data.saved===false?'本次已应用，偏好保存失败。':patch.displayId!==undefined?'运行显示器已切换，截图跟随 App。':'截图方式已保存。');}
+  try {const data=await window.cockpit.setCaptureOptions(patch);hydrateCapture({captureOptions:data});notice(data.saved===false?'本次已应用，偏好保存失败。':'已保存。');}
   catch(error){notice(error.message);try{hydrateCapture(await window.cockpit.getConfig());}catch{}}
   finally {captureSaving=false;byId('quickCaptureMode').disabled=false;byId('quickDisplay').disabled=false;}
 }
 byId('quickCaptureMode')?.addEventListener('change',()=>saveCaptureOptions({mode:byId('quickCaptureMode').value}));
-byId('quickDisplay')?.addEventListener('change',event=>{
-  if(captureSaving||event.target.type!=='radio'||!event.target.checked)return;
-  return saveCaptureOptions({displayId:String(event.target.value)});
+byId('quickDisplay')?.addEventListener('change',()=>{
+  const displayId=byId('quickDisplay').value;
+  if(captureSaving || !displayId)return;
+  return saveCaptureOptions({displayId:String(displayId)});
 });
-byId('quickManageModels')?.addEventListener('click',()=>openSettings('models'));
+byId('quickModel')?.addEventListener('change',activateModel);
 byId('quickRefreshModels')?.addEventListener('click',loadModels);
 function openSettings(section = '') {
   const url = `/settings${section ? `#${section}` : ''}`;

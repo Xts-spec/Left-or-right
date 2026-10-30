@@ -93,6 +93,7 @@ code { font-family: "SFMono-Regular", Consolas, monospace; font-size: .75rem; }
 .model-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .model-card-top strong { font-size: 1rem; font-weight: 500; overflow-wrap: anywhere; }
 .model-badge { flex: 0 0 auto; font-size: .75rem; color: var(--muted); }
+.model-card-model { font-size: .875rem; overflow-wrap: anywhere; }
 .model-card-url { color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }
 .model-card footer { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .model-card footer button { min-height: 36px; padding: 8px 14px; font-size: .75rem; }

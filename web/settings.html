@@ -33,6 +33,8 @@
         <form id="llmForm" class="connection-editor">
           <div class="section-heading"><h2 id="llmFormTitle">编辑模型</h2><button type="button" class="text-button" id="llmCancelEdit">还原修改</button></div>
           <div class="connection-fields">
+            <label for="llmName">名称</label>
+            <div><input id="llmName" required maxlength="60" autocomplete="off" placeholder="例如：个人接口、公司网关" /></div>
             <label for="llmBaseUrl">接口 URL</label>
             <div><input id="llmBaseUrl" type="url" required autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /><p class="field-hint">支持基础地址或完整接口路径，自动识别协议。</p></div>
             <label for="llmApiKey">API Key</label>

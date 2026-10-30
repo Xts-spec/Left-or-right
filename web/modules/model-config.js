@@ -22,6 +22,7 @@ function setState(text, kind = "") {
 
 function readForm() {
   return {
+    name: $("#llmName").value.trim(),
     llm_base_url: $("#llmBaseUrl").value.trim(),
     llm_model: $("#llmModel").value.trim(),
     llm_max_tokens: Number($("#llmMaxTokens").value || DEFAULT_TOKENS),
@@ -33,6 +34,7 @@ function fillForm(profile) {
   formEpoch += 1;
   editingId = profile?.id || "";
   draft = profile;
+  $("#llmName").value = profile?.name || profile?.llm_model || "";
   $("#llmBaseUrl").value = profile?.llm_base_url || "";
   $("#llmModel").value = profile?.llm_model || "";
   $("#llmMaxTokens").value = String(profile?.llm_max_tokens ?? DEFAULT_TOKENS);
@@ -78,7 +80,8 @@ function profileCard(profile) {
   const active = profile.id === activeId;
   const editing = profile.id === editingId;
   return `<article class="model-card${active ? " is-active" : ""}${editing ? " is-editing" : ""}">
-    <div class="model-card-top"><strong>${escapeHtml(profile.llm_model || "未设置模型")}</strong>${active ? '<span class="model-badge">使用中</span>' : ""}</div>
+    <div class="model-card-top"><strong>${escapeHtml(profile.name || profile.llm_model || "未命名接入")}</strong>${active ? '<span class="model-badge">使用中</span>' : ""}</div>
+    <p class="model-card-model">${escapeHtml(profile.llm_model || "未设置模型")}</p>
     <p class="model-card-url">${escapeHtml(profile.llm_base_url || "待填写接口 URL")}</p>
     <footer>${active ? "" : `<button type="button" class="secondary" data-activate="${escapeHtml(profile.id)}">使用</button>`}<button type="button" class="text-button" data-edit="${escapeHtml(profile.id)}">编辑</button><button type="button" class="text-button is-danger" data-delete="${escapeHtml(profile.id)}">删除</button></footer>
   </article>`;
@@ -118,7 +121,6 @@ function payloadFor(profile) {
   return {
     ...form,
     profile_id: profile?.id || `p_${crypto.randomUUID()}`,
-    name: form.llm_model,
     llm_protocol: sameUrl ? profile.llm_protocol : "auto",
     llm_api_path: sameUrl ? profile.llm_api_path : "/chat/completions",
     llm_auth_header: sameUrl ? profile.llm_auth_header : "Authorization",
@@ -134,8 +136,8 @@ async function saveProfile(event) {
   event?.preventDefault();
   if (busy) return false;
   const form = readForm();
-  if (!form.llm_base_url || !form.llm_model) {
-    setState("请填写接口 URL 和模型名称。", "error");
+  if (!form.name || !form.llm_base_url || !form.llm_model) {
+    setState("请填写名称、接口 URL 和模型名称。", "error");
     return false;
   }
   if (!Number.isInteger(form.llm_max_tokens) || form.llm_max_tokens < 1 || form.llm_max_tokens > 1000000) {

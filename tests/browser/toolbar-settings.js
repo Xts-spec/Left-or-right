@@ -15,14 +15,18 @@ async(page)=>{
   });
   let prefs={study_language:'Python',answer_language:'zh-CN',assistant_role:'candidate',study_instructions:'keep'};
   const patches=[];const models=[];let savedSessions=0;
+  const profiles={active_profile_id:'personal',profiles:[
+    {id:'personal',name:'个人接口',llm_model:'same-model',llm_base_url:'https://personal.example.test/v1'},
+    {id:'team',name:'团队接口',llm_model:'same-model',llm_base_url:'https://team.example.test/v1'},
+  ]};
   await page.route('**/api/ui/settings',route=>{
     if(route.request().method()==='PATCH'){const patch=route.request().postDataJSON();patches.push(patch);prefs={...prefs,...patch};}
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(prefs)});
   });
-  await page.route('**/api/config/models',route=>{
-    const payload=route.request().method()==='POST'?route.request().postDataJSON():{screenshot_model:'vision-a',interview_model:'text-b',models:['vision-a','text-b','model-c']};
-    if(route.request().method()==='POST')models.push(payload);
-    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+  await page.route('**/api/config/llm/profiles',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(profiles)}));
+  await page.route('**/api/config/llm/activate',route=>{
+    const payload=route.request().postDataJSON();models.push(payload);profiles.active_profile_id=payload.profile_id;
+    return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(profiles)});
   });
   await page.route('**/api/learning-assets/sessions**',route=>{
     const body=route.request().method()==='POST'?route.request().postDataJSON():{};
@@ -63,18 +67,34 @@ async(page)=>{
   await page.waitForFunction(()=>!document.querySelector('#quickIdentity').disabled);
   await page.locator('#quickCaptureMode').selectOption('full');
   await page.waitForFunction(()=>!document.querySelector('#quickDisplay').disabled);
-  if(await page.locator('#quickDisplay input[type="radio"]').count()!==2)throw Error('running displays are not rendered as radio options');
-  await page.locator('#quickDisplay input[value="2"]').check();
+  if(await page.locator('#quickDisplay').evaluate(e=>e.tagName)!=='SELECT')throw Error('running display does not use the shared select control');
+  if(await page.locator('#quickDisplayHint').count())throw Error('running display includes an extra hint');
+  await page.locator('#quickDisplay').selectOption('2');
   await page.waitForFunction(()=>!document.querySelector('#quickDisplay').disabled);
-  if(await page.locator('#quickDisplay input:checked').count()!==1)throw Error('more than one running display is selected');
-  if(await page.locator('#quickDisplay input[value="1"]').isChecked())throw Error('selecting the second screen did not clear the first');
+  if(await page.locator('#quickDisplay option:checked').count()!==1)throw Error('more than one running display is selected');
   const capturePatch=await page.evaluate(()=>window.__toolbarCalls.filter(c=>c[0]==='captureOptions').at(-1)?.[1]);
   if(capturePatch?.displayId!=='2'||'displayIds' in capturePatch)throw Error('a single displayId was not sent');
-  await page.locator('#quickDisplay input[value="1"]').check();
+  await page.locator('#quickDisplay').selectOption('1');
   await page.waitForFunction(()=>!document.querySelector('#quickDisplay').disabled);
-  if(await page.locator('#quickDisplay input[value="2"]').isChecked())throw Error('switching back did not clear the second screen');
-  if(!/截图跟随 App/.test(await page.locator('#quickSettingsStatus').textContent()))throw Error('running-display change lacks capture-follow feedback');
-  await page.waitForFunction(()=>/vision-a|text-b/.test(document.querySelector('#quickModelSummary')?.textContent||''));
+  if(await page.locator('#quickDisplay').inputValue()!=='1')throw Error('switching back did not select the first screen');
+  if(await page.locator('#quickManageModels, #quickModelSummary').count())throw Error('quick settings still includes model management or a duplicate summary');
+  await page.waitForFunction(()=>!document.querySelector('#quickModel').disabled);
+  if(await page.locator('#quickModel option').count()!==2)throw Error('same-model profiles were deduplicated');
+  const labels=await page.locator('#quickModel option').allTextContents();
+  if(!labels[0].includes('个人接口')||!labels[1].includes('团队接口'))throw Error('saved model profile names are not shown');
+  const modelAfterLayout=await page.locator('#quickModel').evaluate(e=>Boolean(document.querySelector('#liuwaLayout').compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING));
+  if(!modelAfterLayout)throw Error('current model was not moved after the display controls');
+  await page.locator('#quickModel').selectOption('team');
+  await page.waitForFunction(()=>!document.querySelector('#quickModel').disabled);
+  if(models.at(-1)?.profile_id!=='team')throw Error('same-model source did not activate by profile id');
+  await page.locator('#quickModel').selectOption('personal');
+  await page.waitForFunction(()=>!document.querySelector('#quickModel').disabled);
+  if(models.at(-1)?.profile_id!=='personal')throw Error('switching model source back failed');
+  profiles.profiles.push({id:'new',name:'新增接口',llm_model:'third-model',llm_base_url:'https://new.example.test/v1'});
+  await page.locator('#quickRefreshModels').click();
+  await page.waitForFunction(()=>!document.querySelector('#quickRefreshModels').disabled);
+  if(await page.locator('#quickModel option').count()!==3)throw Error('refresh did not reload all saved models');
+  if(await page.locator('#quickModel').inputValue()!=='personal')throw Error('refresh changed the active model selection');
   await page.locator('[data-theme-mode="dark"]').click();
   const dark=await page.locator('.liuwa-reader').evaluate(e=>({bg:getComputedStyle(e).backgroundColor,ink:getComputedStyle(e).color}));
   if(!dark.bg.includes('22, 30, 46'))throw Error('dark appearance is not applied');

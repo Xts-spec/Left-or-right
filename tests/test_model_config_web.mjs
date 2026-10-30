@@ -7,7 +7,7 @@ import { webcrypto } from 'node:crypto';
 const source = fs.readFileSync(new URL('../web/modules/model-config.js', import.meta.url), 'utf8');
 function moduleUnderTest() {
   const elements = new Map();
-  for (const id of ['llmBaseUrl', 'llmModel', 'llmMaxTokens', 'llmApiKey', 'llmToggleKey', 'llmProfileState', 'llmFormTitle', 'llmModelOptions', 'llmProfileCards', 'llmPresetCards', 'llmPresetBlock', 'llmImportText', 'llmImportState', 'llmNewProfile', 'saveLlmProfile', 'importLlmProfile', 'llmImportFile', 'llmCancelEdit', 'llmForm', 'checkModel']) {
+  for (const id of ['llmName', 'llmBaseUrl', 'llmModel', 'llmMaxTokens', 'llmApiKey', 'llmToggleKey', 'llmProfileState', 'llmFormTitle', 'llmModelOptions', 'llmProfileCards', 'llmPresetCards', 'llmPresetBlock', 'llmImportText', 'llmImportState', 'llmNewProfile', 'saveLlmProfile', 'importLlmProfile', 'llmImportFile', 'llmCancelEdit', 'llmForm', 'checkModel']) {
     elements.set(`#${id}`, {
       value: '', type: 'password', textContent: '', dataset: {}, disabled: false, hidden: false, listeners: {}, attributes: {},
       addEventListener(type, fn) { this.listeners[type] = fn; },
@@ -61,6 +61,29 @@ test('saved key displays a mask and remains private until explicitly revealed', 
   assert.equal(posts.length, 1);
 });
 
+test('a connection name appears on the card and is preserved when saving', async () => {
+  const { run, elements, store, posts } = moduleUnderTest();
+  store.profiles[0].name = '公司网关';
+  await run('loadProfiles()');
+  assert.equal(elements.get('#llmName').value, '公司网关');
+  assert.match(elements.get('#llmProfileCards').innerHTML, /<strong>公司网关<\/strong>/);
+  assert.match(elements.get('#llmProfileCards').innerHTML, /model-a/);
+  elements.get('#llmName').value = '个人接口';
+  await run('saveProfile()');
+  assert.equal(posts[0].body.name, '个人接口');
+  assert.equal(posts[0].body.llm_model, 'model-a');
+  assert.equal(posts[0].body.profile_id, 'lan');
+});
+
+test('missing connection name prevents saving', async () => {
+  const { run, elements, posts } = moduleUnderTest();
+  await run('loadProfiles()');
+  elements.get('#llmName').value = '';
+  assert.equal(await run('saveProfile()'), false);
+  assert.equal(posts.length, 0);
+  assert.match(elements.get('#llmProfileState').textContent, /名称/);
+});
+
 test('saving an untouched masked key never sends the mask as a credential', async () => {
   const { run, posts } = moduleUnderTest();
   await run('loadProfiles()');
@@ -92,6 +115,7 @@ test('new profile uses a distinct id and a 30000 token default', async () => {
   assert.equal(elements.get('#llmApiKey').value, '');
   elements.get('#llmBaseUrl').value = 'https://other.test/v1';
   elements.get('#llmModel').value = 'other';
+  elements.get('#llmName').value = '备用来源';
   await run('saveProfile()');
   assert.notEqual(posts[0].body.profile_id, 'lan');
   assert.equal(posts[0].body.llm_max_tokens, 30000);
@@ -103,6 +127,7 @@ test('new duplicate connection reuses the saved profile id', async () => {
   elements.get('#llmNewProfile').listeners.click();
   elements.get('#llmBaseUrl').value = 'http://10.0.0.2:9555/v1/';
   elements.get('#llmModel').value = 'model-a';
+  elements.get('#llmName').value = '同一来源';
   await run('saveProfile()');
   assert.equal(posts[0].body.profile_id, 'lan');
 });

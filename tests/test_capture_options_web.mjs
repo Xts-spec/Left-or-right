@@ -7,95 +7,180 @@ const quickSource=fs.readFileSync(new URL('../web/modules/quick-settings.js',imp
 const homeSource=fs.readFileSync(new URL('../web/modules/home.js',import.meta.url),'utf8');
 
 class Element {
-  constructor(tag='div') { this.tagName=tag.toUpperCase();this.children=[];this.listeners={};this.dataset={};this.value='';this.checked=false;this.disabled=false;this.textContent='';this.style={}; }
+  constructor(tag='div') { this.tagName=tag.toUpperCase();this.children=[];this.listeners={};this.dataset={};this.value='';this.disabled=false;this.textContent='';this.style={}; }
+  get options() { return this.children; }
   addEventListener(type,callback) { this.listeners[type]=callback; }
   replaceChildren(...children) { this.children=[...children]; }
   append(...children) { this.children.push(...children); }
   querySelector() { return new Element(); }
-  querySelectorAll(selector) {
-    const all=this.children.flatMap(child=>[child,...child.querySelectorAll('all')]);
-    if(selector==='all')return all;
-    return all.filter(child=>child.tagName==='INPUT'&&child.type==='radio'&&(!selector.includes(':checked')||child.checked));
-  }
+}
+class Option extends Element {
+  constructor(text,value) { super('option');this.textContent=text;this.value=value; }
 }
 function quickModule() {
   const elements=new Map();
-  const byId=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
+  const byId=id=>{if(!elements.has(id))elements.set(id,new Element(['quickDisplay','quickModel'].includes(id)?'select':'div'));return elements.get(id);};
   const calls=[];
+  const requests=[];
   const backend={mode:'area',displayId:'1',displays:[{id:1,label:'内建屏',width:1512,height:982},{id:2,label:'外接屏',width:1920,height:1080}]};
+  const models={active_profile_id:'personal',profiles:[
+    {id:'personal',name:'个人接口',llm_model:'same-model',llm_base_url:'https://personal.example.test/v1'},
+    {id:'team',name:'团队接口',llm_model:'same-model',llm_base_url:'https://team.example.test/v1'},
+  ]};
   const sandbox={
     document:{getElementById:byId,querySelector:()=>null,createElement:tag=>new Element(tag),addEventListener(){}},
     window:{addEventListener(){},location:{origin:'http://localhost'},cockpit:{
       setCaptureOptions:async patch=>{calls.push(patch);Object.assign(backend,patch);return {...backend,saved:true};},
       getConfig:async()=>({captureOptions:backend}),
     }},
-    state:{},applyDisplay(){},ResizeObserver:class{observe(){}},Option:class{},innerHeight:720,
+    state:{},applyDisplay(){},ResizeObserver:class{observe(){}},Option,URL,AbortSignal,innerHeight:720,
+    fetch:async(url,options)=>{
+      const path=new URL(url).pathname;
+      const body=options.body?JSON.parse(options.body):undefined;
+      requests.push({path,method:options.method,body});
+      if(path==='/api/config/llm/activate')models.active_profile_id=body.profile_id;
+      return {ok:true,json:async()=>models};
+    },
   };
   const context=vm.createContext(sandbox);
   vm.runInContext(quickSource.replace(/^import .*;$/gm,'').replaceAll('export async function','async function'),context);
   sandbox.config={captureOptions:backend};
   vm.runInContext('hydrateCapture(config)',context);
-  return {elements,byId,calls,backend,sandbox,run:code=>vm.runInContext(code,context)};
+  return {elements,byId,calls,requests,backend,models,sandbox,run:code=>vm.runInContext(code,context)};
 }
 
-test('running displays share one radio group with a single backend selection',()=>{
+test('running displays use one ordinary select with the effective backend choice',()=>{
   const {byId}=quickModule();
-  const list=byId('quickDisplay');
-  const inputs=list.querySelectorAll('input[type="radio"]');
-  assert.deepEqual(inputs.map(input=>input.value),['1','2']);
-  assert.deepEqual(inputs.map(input=>input.checked),[true,false]);
-  assert.equal(new Set(inputs.map(input=>input.name)).size,1);
-  assert.equal(inputs[0].name,'quickRunDisplay');
-  assert.equal(list.children[0].textContent,'运行显示器');
-  assert.equal(list.disabled,false);
+  const select=byId('quickDisplay');
+  assert.equal(select.tagName,'SELECT');
+  assert.deepEqual(select.options.map(option=>option.value),['1','2']);
+  assert.equal(select.value,'1');
+  assert.equal(select.disabled,false);
 });
 
 test('choosing another running display sends only one string displayId',async()=>{
   const {byId,calls}=quickModule();
-  const list=byId('quickDisplay');
-  const second=list.querySelectorAll('input[type="radio"]')[1];second.checked=true;
-  await list.listeners.change({target:second});
+  const select=byId('quickDisplay');select.value='2';
+  await select.listeners.change();
   assert.deepEqual(JSON.parse(JSON.stringify(calls)),[{displayId:'2'}]);
-  assert.deepEqual(list.querySelectorAll('input[type="radio"]:checked').map(input=>input.value),['2']);
-  assert.equal(list.disabled,false);
-  assert.match(byId('quickSettingsStatus').textContent,/截图跟随 App/);
+  assert.equal(select.value,'2');
+  assert.equal(select.disabled,false);
+  assert.equal(byId('quickSettingsStatus').textContent,'已保存。');
 });
 
-test('unchecked and unrelated changes cannot send an empty or multiple-display update',async()=>{
+test('an empty running display does not send an invalid selection',async()=>{
   const {byId,calls}=quickModule();
-  const list=byId('quickDisplay');const first=list.querySelectorAll('input[type="radio"]')[0];first.checked=false;
-  await list.listeners.change({target:first});
-  await list.listeners.change({target:{type:'checkbox',checked:true,value:'2'}});
+  const select=byId('quickDisplay');select.value='';
+  await select.listeners.change();
   assert.equal(calls.length,0);
 });
 
 test('effective backend selection replaces disconnected display options',async()=>{
   const {byId,backend,sandbox}=quickModule();
   sandbox.window.cockpit.setCaptureOptions=async()=>({mode:'full',displayId:'2',displays:[backend.displays[1]],saved:true});
-  const list=byId('quickDisplay');const second=list.querySelectorAll('input[type="radio"]')[1];second.checked=true;
-  await list.listeners.change({target:second});
-  assert.deepEqual(list.querySelectorAll('input[type="radio"]').map(input=>[input.value,input.checked]),[['2',true]]);
+  const select=byId('quickDisplay');select.value='2';
+  await select.listeners.change();
+  assert.deepEqual(select.options.map(option=>option.value),['2']);
+  assert.equal(select.value,'2');
   assert.equal(byId('quickCaptureMode').value,'full');
 });
 
 test('failed display moves restore the effective selection returned by the app',async()=>{
   const {byId,sandbox,calls}=quickModule();
   sandbox.window.cockpit.setCaptureOptions=async()=>{throw Error('显示器已断开');};
-  const list=byId('quickDisplay');const second=list.querySelectorAll('input[type="radio"]')[1];second.checked=true;
-  await list.listeners.change({target:second});
+  const select=byId('quickDisplay');select.value='2';
+  await select.listeners.change();
   assert.equal(calls.length,0);
-  assert.deepEqual(list.querySelectorAll('input[type="radio"]:checked').map(input=>input.value),['1']);
+  assert.equal(select.value,'1');
   assert.match(byId('quickSettingsStatus').textContent,/显示器已断开/);
-  assert.equal(list.disabled,false);
+  assert.equal(select.disabled,false);
 });
 
-test('display names are rendered as literal text and browser-only capture remains disabled',()=>{
+test('display names are literal option text and browser-only capture remains disabled',()=>{
   const {byId,backend,run}=quickModule();backend.displays[0].label='<img src=x onerror=alert(1)>';
   run('hydrateCapture(config)');
-  assert.match(byId('quickDisplay').children[1].children[1].textContent,/^<img src=x onerror=alert\(1\)>/);
+  assert.match(byId('quickDisplay').options[0].textContent,/^<img src=x onerror=alert\(1\)>/);
   run('hydrateCapture({})');
   assert.equal(byId('quickDisplay').disabled,true);
   assert.equal(byId('quickCaptureMode').disabled,true);
+});
+
+test('all saved profiles remain selectable even when their model names are identical',async()=>{
+  const {run,byId}=quickModule();
+  await run('loadModels()');
+  const select=byId('quickModel');
+  assert.deepEqual(select.options.map(option=>option.value),['personal','team']);
+  assert.deepEqual(select.options.map(option=>option.textContent),['个人接口 · same-model','团队接口 · same-model']);
+  assert.equal(select.value,'personal');
+  assert.equal(select.disabled,false);
+});
+
+test('model selection activates its saved profile id instead of just the model name',async()=>{
+  const {run,byId,requests}=quickModule();
+  await run('loadModels()');
+  const select=byId('quickModel');select.value='team';
+  await select.listeners.change();
+  const activation=requests.find(request=>request.path==='/api/config/llm/activate');
+  assert.deepEqual(activation.body,{profile_id:'team'});
+  assert.equal(select.value,'team');
+  assert.equal(byId('quickSettingsStatus').textContent,'已保存。');
+});
+
+test('refresh reloads every saved source and uses the server active profile',async()=>{
+  const {run,byId,models}=quickModule();
+  await run('loadModels()');
+  models.profiles.push({id:'new',name:'新增接口',llm_model:'third-model',llm_base_url:'https://new.example.test/v1'});
+  models.active_profile_id='new';
+  await byId('quickRefreshModels').listeners.click();
+  assert.deepEqual(byId('quickModel').options.map(option=>option.value),['personal','team','new']);
+  assert.equal(byId('quickModel').value,'new');
+});
+
+test('duplicate profile names include their source hosts and labels stay literal',async()=>{
+  const {run,byId,models}=quickModule();
+  for(const profile of models.profiles)profile.name='<img src=x>';
+  await run('loadModels()');
+  assert.match(byId('quickModel').options[0].textContent,/^<img src=x> · same-model · personal.example.test$/);
+  assert.match(byId('quickModel').options[1].textContent,/team.example.test$/);
+});
+
+test('failed model activation restores the server selection and reports failure',async()=>{
+  const {run,byId,sandbox,models}=quickModule();
+  await run('loadModels()');
+  sandbox.fetch=async(url)=>new URL(url).pathname.endsWith('/activate')
+    ? {ok:false,json:async()=>({detail:'连接切换失败'})}
+    : {ok:true,json:async()=>models};
+  byId('quickModel').value='team';
+  await byId('quickModel').listeners.change();
+  assert.equal(byId('quickModel').value,'personal');
+  assert.equal(byId('quickModel').disabled,false);
+  assert.match(byId('quickSettingsStatus').textContent,/模型切换失败/);
+});
+
+test('a failed refresh keeps the last saved choices and does not report success',async()=>{
+  const {run,byId,sandbox}=quickModule();
+  await run('loadModels()');
+  sandbox.fetch=async()=>{throw Error('网络失败');};
+  await byId('quickRefreshModels').listeners.click();
+  assert.equal(byId('quickModel').value,'personal');
+  assert.equal(byId('quickModel').options.length,2);
+  assert.match(byId('quickSettingsStatus').textContent,/模型列表读取失败/);
+});
+
+test('refresh and model selection stay disabled while activation is pending',async()=>{
+  const {run,byId,sandbox,models}=quickModule();
+  await run('loadModels()');
+  let resolve;
+  sandbox.fetch=()=>new Promise(r=>{resolve=r;});
+  byId('quickModel').value='team';
+  const pending=byId('quickModel').listeners.change();
+  assert.equal(byId('quickRefreshModels').disabled,true);
+  assert.equal(byId('quickModel').disabled,true);
+  models.active_profile_id='team';
+  resolve({ok:true,json:async()=>models});
+  await pending;
+  assert.equal(byId('quickRefreshModels').disabled,false);
+  assert.equal(byId('quickModel').disabled,false);
 });
 
 function captureModule() {

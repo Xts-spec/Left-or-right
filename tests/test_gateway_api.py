@@ -3266,7 +3266,7 @@ def test_gateway_settings_page_keeps_only_current_features(tmp_path: Path, monke
     assert 'href="/cockpit"' not in page.text
     assert "<iframe" not in page.text
     assert "检查语音服务" not in page.text
-    assert 'id="llmName"' not in page.text
+    assert 'id="llmName"' in page.text
     assert 'value="行测"' in page.text
     assert 'value="申论"' in page.text
     script = client.get("/modules/settings.js").text
