@@ -5,13 +5,17 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 const require = createRequire(import.meta.url);
 
-function windowModule(area = {x:0,y:24,width:1440,height:876}) {
-  const sandbox = {module:{exports:{}}, __dirname:'/app/main', process,
-    require: name => name === 'electron' ? {app:{isPackaged:false},screen:{getDisplayMatching:()=>({workArea:area})}} : name === './capture-options' ? require('../desktop/main/capture-options.js') : require(name)};
+function windowModule(area = {x:0,y:24,width:1440,height:876}, platform = process.platform) {
+  const sandbox = {module:{exports:{}}, __dirname:'/app/main', process:{...process,platform},
+    require: name => name === 'electron' ? {app:{isPackaged:false},screen:{getDisplayMatching:()=>({workArea:area})}} : name === './capture-options' ? require('../desktop/main/capture-options.js') : name === './command-key' ? {
+      getWindowsForegroundWindow:()=> '456',
+      restoreWindowsForegroundWindow:(target,expected)=>events.push(['restoreForeground',target,expected]),
+    } : require(name)};
   vm.runInNewContext(fs.readFileSync(new URL('../desktop/main/window.js', import.meta.url),'utf8'),sandbox);
   let bounds = {x:900,y:500,width:640,height:700};
   const events = [];
   const win = {isDestroyed:()=>false,getBounds:()=>bounds,
+    getNativeWindowHandle:()=>Buffer.from([123,0,0,0,0,0,0,0]),
     setSize:(width,height)=>{bounds={...bounds,width,height};},
     setPosition:(x,y)=>{bounds={...bounds,x,y};},
     setBounds:value=>{bounds={...bounds,...value};},
@@ -111,6 +115,29 @@ test('the overlay passes clicks through by default and only captures them while 
   const mouseEvents = events.filter(([event])=>event==='ignoreMouse');
   assert.equal(mouseEvents.length,3);
   assert.ok(mouseEvents.every(([, , options])=>options.forward===false));
+});
+
+test('Windows Ctrl interaction restores foreground only after the overlay took focus',()=>{
+  const {api,win,events}=windowModule(undefined,'win32');
+  api.setInteractive(win,true);
+  assert.equal(api.isInteractive(),true);
+  assert.ok(!events.some(([event])=>event==='restoreForeground'));
+  api.setInteractive(win,false);
+  assert.deepEqual(events.find(([event])=>event==='restoreForeground'),['restoreForeground','456','123']);
+
+  const passive=windowModule(undefined,'win32');
+  passive.win.isFocused=()=>false;
+  passive.api.setInteractive(passive.win,true);
+  passive.api.setInteractive(passive.win,false);
+  assert.ok(!passive.events.some(([event])=>event==='restoreForeground'));
+});
+
+test('a repeated unarmed state still forces native and renderer interaction off',()=>{
+  const {api,win,events}=windowModule(undefined,'win32');
+  api.setInteractive(win,false);
+  assert.ok(events.some(([event,ignore])=>event==='ignoreMouse'&&ignore===true));
+  assert.ok(events.some(([event,focusable])=>event==='focusable'&&focusable===false));
+  assert.ok(events.some(([event,armed])=>event==='cockpit:armed'&&armed===false));
 });
 
 test('preferences write outside app.asar and merge with existing gateway configuration',()=>{

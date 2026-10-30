@@ -16,6 +16,7 @@ node_modules/
 desktop/config.json
 desktop/dist/
 desktop/backend/
+desktop/native/windows-interaction.exe
 
 .ai-tracker
 

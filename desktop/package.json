@@ -7,7 +7,9 @@
   "main": "main/index.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac"
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win --x64"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -37,6 +39,19 @@
         "to": "backend"
       }
     ],
+    "artifactName": "Left-or-right-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "assets/icon.png",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
     "mac": {
       "category": "public.app-category.productivity",
       "target": [

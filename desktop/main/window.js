@@ -138,7 +138,8 @@ function createWindow(config, { onMove, onDisplay } = {}) {
   const rememberFrontApp = setInterval(() => {
     if (interact) return;
     const pid = frontmostPid();
-    if (pid && pid !== String(process.pid)) previousPid = pid;
+    const own = process.platform === 'win32' ? nativeWindowId(win) : String(process.pid);
+    if (pid && pid !== own) previousPid = pid;
   }, 1000);
   win.on('closed', () => clearInterval(rememberFrontApp));
 
@@ -327,7 +328,14 @@ function setClickThrough(win, ignore) {
   win.setIgnoreMouseEvents(Boolean(ignore), { forward: false });
 }
 
+function nativeWindowId(win) {
+  if (!win || typeof win.getNativeWindowHandle !== 'function') return '';
+  const handle = win.getNativeWindowHandle();
+  return handle.length >= 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE());
+}
+
 function frontmostPid() {
+  if (process.platform === 'win32') return require('./command-key').getWindowsForegroundWindow();
   if (process.platform !== 'darwin') return '';
   try {
     return execFileSync(
@@ -340,7 +348,11 @@ function frontmostPid() {
   }
 }
 
-function activatePid(pid) {
+function activatePid(pid, win) {
+  if (process.platform === 'win32') {
+    require('./command-key').restoreWindowsForegroundWindow(pid, nativeWindowId(win));
+    return;
+  }
   const n = Number(pid);
   if (!n || process.platform !== 'darwin') return;
   execFile(
@@ -357,9 +369,20 @@ function isInteractive() {
 function setInteractive(win, on, { restore = true } = {}) {
   if (!win || win.isDestroyed()) return interact;
   const next = Boolean(on);
-  if (interact === next) return interact;
+  if (interact === next) {
+    if (!next) {
+      setClickThrough(win, true);
+      win.setFocusable(false);
+      win.webContents.send('cockpit:armed', false);
+    }
+    return interact;
+  }
   interact = next;
   if (interact) {
+    if (process.platform === 'win32') {
+      const foreground = frontmostPid();
+      if (foreground && foreground !== nativeWindowId(win)) previousPid = foreground;
+    }
     armedAt = Date.now();
     if (!win.isVisible()) win.showInactive();
     // 不主动 focus：按下 Command 只解除鼠标穿透，用户仍可继续在题目
@@ -374,7 +397,8 @@ function setInteractive(win, on, { restore = true } = {}) {
     previousPid = '';
     // 只有悬浮层真的取得过焦点时才把焦点还给原来的应用。单纯按住
     // Command 不会打断用户正在输入的题目。
-    if (restore && hadFocus && pid && pid !== String(process.pid)) activatePid(pid);
+    const own = process.platform === 'win32' ? nativeWindowId(win) : String(process.pid);
+    if (restore && hadFocus && pid && pid !== own) activatePid(pid, win);
   }
   win.webContents.send('cockpit:armed', interact);
   return interact;
@@ -385,7 +409,8 @@ function beginHoldInteract(win) {
   // 兼容旧的“按住操作面板”全局快捷键：它只负责进入临时交互，
   // 松开 Command 后仍由系统级监听统一恢复穿透。
   const pid = frontmostPid();
-  if (pid && pid !== String(process.pid)) previousPid = pid;
+  const own = process.platform === 'win32' ? nativeWindowId(win) : String(process.pid);
+  if (pid && pid !== own) previousPid = pid;
   setInteractive(win, true);
 }
 

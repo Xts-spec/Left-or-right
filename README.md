@@ -12,9 +12,23 @@
 
 ## 桌面应用
 
-安装版自带本地服务。打开应用后自动启动 `9958`，从应用的“更多设置”或“模型接入”打开网页即可，无需额外启动终端服务。退出应用只停止它自己启动的服务。
+安装版自带本地服务。打开应用后自动启动 `9958`，从应用的“更多设置”打开应用内设置窗口，无需额外启动终端服务。退出应用只停止它自己启动的服务。
 
-悬浮窗默认鼠标穿透：未按住 `⌘` 时没有点击和悬停反馈，按住 `⌘` 才能操作，松开即恢复穿透。普通设置网页不受此限制。
+悬浮窗默认鼠标穿透：macOS 按住 `⌘`、Windows 按住 `Ctrl` 才能操作，松开即恢复穿透，未按住时没有悬停反馈。应用内设置窗口正常接收鼠标和键盘，不需要一直按住修饰键。
+
+### 捕获保护与分享边界
+
+主悬浮窗、应用内设置窗口及截图选区窗均请求系统窗口捕获保护。应用内下拉菜单在同一网页窗口中绘制，避免另开原生系统菜单弹层。快捷键 `⌘B`（Windows 为 `Ctrl+B`）隐藏或恢复左右的全部窗口；隐藏后，单独按住修饰键不会重新显示它们。截图期间也会暂时隐藏主窗和设置窗。
+
+这不是对所有截图、会议共享或录屏的不可见保证：macOS 的部分 ScreenCaptureKit 捕获方式可能不遵守窗口排除标记；Windows 10 2004 及更新版本使用系统的窗口排除捕获能力，旧版本可能只显示黑块，具体软件及系统仍需实测。不支持的平台或录屏方式不会被声称为已保护，也不会通过驱动、注入或降低系统策略绕过限制。
+
+涉及敏感内容时优先只共享目标业务窗口，不共享整个桌面；必要时先隐藏左右的全部窗口。手动在外部浏览器打开 `http://127.0.0.1:9958/settings` 不具备 App 窗口捕获保护。
+
+### 跨设备与跨系统
+
+Windows 与 macOS 共用模型接入、专业方向、语言、对话和学习记录接口；显示器为单选运行屏幕，截图跟随应用所在屏幕，并按每块屏幕的缩放比例转换选区坐标。Windows 安装包与后台服务必须在 Windows 原生构建，不能把 Mac 后台可执行文件复制过去使用。
+
+数据保存在当前设备的用户目录，不会自动跨设备同步密钥、简历或学习记录。换设备需自行配置接口或导入配置；请勿通过 Git 同步 `.env`、数据库或密钥。Windows 的原生安装、不同 DPI、会议录屏和鼠标穿透行为需要 Windows 实机验收，模拟单测不能替代。
 
 ### 运行显示器
 
@@ -90,9 +104,9 @@ python scripts/run_gateway.py
 
 端口被占用时可用 `python scripts/run_gateway.py --port 9959`，桌面配置中的 `gatewayUrl` 需与之保持一致。安装版应用不需要执行这些开发命令。
 
-### 构建 macOS 应用
+### 构建桌面应用
 
-需要 Node.js、npm 与已激活的 Python 环境：
+在目标操作系统上准备 Node.js、npm 与已激活的 Python 环境；macOS 使用 `.venv/bin/python`，Windows 使用 `.venv\Scripts\python.exe`。Windows 默认构建 x64 安装包，macOS 构建当前机器架构：
 
 ```bash
 pip install -e ".[desktop]"
@@ -106,13 +120,15 @@ npm --prefix desktop ci
 npm --prefix desktop run dist
 ```
 
+`npm --prefix desktop run dist` 按当前系统构建；也可在对应系统执行 `dist:mac` 或 `dist:win`。Windows 生成按用户安装的 NSIS 安装包，后台服务与修饰键助手隐藏控制台启动，卸载不自动删除用户数据。没有签名证书的构建仍可能触发系统安全提示，不应关闭安全检查来掩盖它。
+
 构建时会打包本地服务及其运行环境，安装后不依赖开发机的 Python。仅生成应用目录时使用：
 
 ```bash
 npm --prefix desktop run dist -- --dir
 ```
 
-可通过 `DESKTOP_PYTHON` 指定构建使用的解释器。构建产物位于 `desktop/dist/`，不应作为源码提交。
+可通过 `DESKTOP_PYTHON` 指定构建使用的解释器。构建产物位于 `desktop/dist/`，不应作为源码提交。仓库提供手动触发的原生桌面构建工作流，分别在 Windows 和 macOS runner 中构建并检查捆绑服务；工作流不携带本机配置或密钥，也不自动发布正式版本。
 
 ## 本地配置与隐私
 
@@ -127,8 +143,6 @@ npm --prefix desktop run dist -- --dir
 源码保留可选 ASR 底层组件，不属于当前截图学习的必需依赖。默认 `ASR_PROVIDER=stub` 仅用于本地测试；可根据需要配置 `ASR_PROVIDER=sherpa_onnx`、`ASR_PROVIDER=aliyun_ws` 或 `ASR_PROVIDER=aliyun_nls_ws`。NLS 可使用 Token 或由 AccessKey 签发令牌。
 
 相关诊断脚本：`scripts/download_sherpa_asr_model.py`、`scripts/check_aliyun_asr.py`、`scripts/check_aliyun_nls_asr.py`。配置语音服务不会自动启用录音；不要把这些底层组件视为现有截图界面的语音入口。
-
-仓库内 PCM 样本是合成测试音，不包含真人录音。验证真实转写时，通过 `--pcm-path` 指定已获授权的 16kHz 单声道 PCM16 语音文件。
 
 ## 测试与诊断
 

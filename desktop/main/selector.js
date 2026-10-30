@@ -58,11 +58,19 @@ function wireOnce() {
     // clientX/clientY 是覆盖层内坐标；裁剪的是选中屏幕的截图，不叠加桌面原点。
     const display = selectedDisplay || screen.getPrimaryDisplay();
     const scale = display?.scaleFactor || 1;
+    if (!rect || !['left', 'top', 'width', 'height'].every((key) => Number.isFinite(rect[key]))
+        || rect.left < 0 || rect.top < 0 || rect.width < 4 || rect.height < 4
+        || rect.left + rect.width > display.bounds.width || rect.top + rect.height > display.bounds.height) {
+      settle(null);
+      return;
+    }
+    const x = Math.round(rect.left * scale);
+    const y = Math.round(rect.top * scale);
     settle({
-      x: Math.round(rect.left * scale),
-      y: Math.round(rect.top * scale),
-      width: Math.round(rect.width * scale),
-      height: Math.round(rect.height * scale),
+      x,
+      y,
+      width: Math.round((rect.left + rect.width) * scale) - x,
+      height: Math.round((rect.top + rect.height) * scale) - y,
     });
   });
   ipcMain.on('selector:cancel', () => settle(null));
@@ -136,4 +144,4 @@ function selectRegion(display = screen.getPrimaryDisplay()) {
   });
 }
 
-module.exports = { selectRegion };
+module.exports = { selectRegion, cancelSelection: () => settle(null) };

@@ -109,7 +109,7 @@ def test_readme_explains_installed_service_and_desktop_build() -> None:
 
     for text in ("安装版自带本地服务", "9958", 'pip install -e ".[desktop]"', "npm --prefix desktop ci", "npm --prefix desktop run dist"):
         assert text in readme
-    for text in ("运行显示器", "下拉框", "应用会移动过去", "截图跟随应用所在屏幕", "两个显示器不能同时选中", "没有点击和悬停反馈"):
+    for text in ("运行显示器", "下拉框", "应用会移动过去", "截图跟随应用所在屏幕", "两个显示器不能同时选中", "未按住时没有悬停反馈"):
         assert text in readme
 
 

@@ -18,7 +18,14 @@ async function captureWindowDisplay({ displays, display, interactive, selectRegi
   if (interactive && !rect) return null;
   const displayIndex = displays.findIndex((item) => item.id === display.id) + 1;
   if (displayIndex < 1) throw new Error('运行显示器已断开，请重新截图');
-  const shot = await captureScreenshot({ interactive: false, rect, displayIndex });
+  const shot = await captureScreenshot({
+    interactive: false,
+    rect,
+    displayIndex,
+    displayId: String(display.id),
+    displayBounds: display.bounds ? { ...display.bounds } : undefined,
+    scaleFactor: display.scaleFactor || 1,
+  });
   return { mime: shot.mime, data: shot.data.toString('base64') };
 }
 

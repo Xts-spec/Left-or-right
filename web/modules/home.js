@@ -1,3 +1,4 @@
+import "./protected-controls.js";
 import { formatAccelerator, acceleratorFromEvent } from "./shortcuts.js";
 import { fallbackGatewayOrigins, state } from "./state.js";
 import { saveSessionRecord } from "./session-store.js";

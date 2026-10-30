@@ -27,7 +27,32 @@ test('full-screen capture takes exactly one image from the app running display',
     captureScreenshot: async options => { calls.push(options); return { mime: 'image/png', data: Buffer.from(String(options.displayIndex)) }; },
   });
   assert.deepEqual(calls.map(c => c.displayIndex), [2]);
+  assert.equal(calls[0].displayId, '2');
+  assert.equal(calls[0].scaleFactor, 1);
   assert.equal(Buffer.from(shot.data, 'base64').toString(), '2');
+});
+
+test('capture forwards the Electron display identity and a separate geometry snapshot', async () => {
+  const display = { id: 42, bounds: { x: -1280, y: 0, width: 1280, height: 720 }, scaleFactor: 1.5 };
+  let forwarded;
+  await captureWindowDisplay({
+    displays: [{ id: 7 }, display], display, interactive: false,
+    selectRegion: async () => { throw Error('not used'); },
+    captureScreenshot: async options => { forwarded = options; return { mime: 'image/png', data: Buffer.from('image') }; },
+  });
+  assert.equal(forwarded.displayId, '42');
+  assert.equal(forwarded.displayIndex, 2);
+  assert.equal(forwarded.scaleFactor, 1.5);
+  assert.deepEqual(forwarded.displayBounds, display.bounds);
+  assert.notEqual(forwarded.displayBounds, display.bounds);
+});
+
+test('a disappeared running display is not replaced by another display', async () => {
+  await assert.rejects(captureWindowDisplay({
+    displays: [displays[0]], display: displays[1], interactive: false,
+    selectRegion: async () => null,
+    captureScreenshot: async () => { throw Error('must not capture'); },
+  }), /断开/);
 });
 
 test('region selection and capture use the same single display', async () => {

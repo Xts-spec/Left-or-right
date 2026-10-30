@@ -1,3 +1,4 @@
+import "./protected-controls.js";
 import { DEFAULT_HOTKEYS, formatAccelerator, acceleratorFromEvent, shortcutConflict } from "./shortcuts.js";
 import { SPECIALTY_GROUPS, LANGUAGE_GROUPS, isExamSpecialty, fillStudyChoice, syncStudyCustom, readStudyChoice } from "./study-presets.js";
 import { parseDocumentFile } from "./documents.js";

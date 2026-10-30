@@ -41,7 +41,7 @@ function backendLaunch(config) {
       ...process.env,
       ZUOYOU_WEB_ROOT: packaged ? path.join(process.resourcesPath, 'web') : path.join(root, 'web'),
       ...(packaged ? {
-        DATABASE_URL: `sqlite:///${path.join(dataDir, 'shuihuo_killer.db')}`,
+        DATABASE_URL: `sqlite:///${path.join(dataDir, 'shuihuo_killer.db').replace(/\\/g, '/')}`,
         REPORT_DIR: path.join(dataDir, 'reports'),
         LLM_PROFILES_PATH: path.join(dataDir, 'model_profiles.json'),
       } : {}),
@@ -57,7 +57,7 @@ function startBackend(config) {
   fs.mkdirSync(logDir, { recursive: true });
   const log = fs.openSync(path.join(logDir, 'gateway.log'), 'a');
   try {
-    child = spawn(launch.command, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['ignore', log, log] });
+    child = spawn(launch.command, launch.args, { cwd: launch.cwd, env: launch.env, stdio: ['ignore', log, log], windowsHide: true });
   } finally { fs.closeSync(log); }
   const current = child;
   const clear = () => { if (child === current) child = null; };

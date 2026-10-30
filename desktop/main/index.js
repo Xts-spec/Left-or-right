@@ -9,8 +9,6 @@ const {
   moveWindow,
   moveToDisplay,
   toggleCompact,
-  toggleVisible,
-  beginHoldInteract,
   setClickThrough,
   changeOpacity,
   changeZoom,
@@ -26,9 +24,11 @@ const {
 const { registerHotkeys, unregisterHotkeys, BINDINGS, bindingsWith, formatAccelerator } = require('./hotkeys');
 const { captureScreenshot } = require('./capture');
 const { validateCaptureOptions, captureWindowDisplay } = require('./capture-options');
-const { selectRegion } = require('./selector');
+const { selectRegion, cancelSelection } = require('./selector');
 const { ensureBackend, stopBackend } = require('./backend');
 const { startCommandKeyMonitor } = require('./command-key');
+const { openSettingsWindow, getSettingsWindow } = require('./settings-window');
+const { createWindowVisibility } = require('./window-visibility');
 
 app.setName('左右');
 const config = loadConfig();
@@ -38,6 +38,11 @@ let currentBindings = BINDINGS;
 let permissionPaneOpened = false;
 let lastScreenshotTime = 0;
 let stopCommandKeyMonitor = null;
+const visibility = createWindowVisibility({
+  getMainWindow: () => win,
+  getSettingsWindow,
+  setInteractive: held => setInteractive(win, held, {restore: !held}),
+});
 // 一次截图流程（框选 → 抓 → 恢复窗口）进行中时，再按截图键直接忽略。
 // 之前第二次 ⌘⇧U 会先取消旧框选再立刻开新的，而旧流程的收尾
 // 会把主面板重新 show 到新覆盖层上面，下一次点击就被面板吃掉了。
@@ -62,10 +67,15 @@ function screenAccessStatus() {
 // 每次按键挪 24px：比 32 更容易微调到贴边，按住方向键连发也不会冲过头。
 const STEP = 24;
 
+function toggleAppVisibility() {
+  if (screenBusy) cancelSelection();
+  visibility.toggle();
+}
+
 function hotkeyHandlers() {
   return {
-    toggleVisible: () => beginHoldInteract(win),
-    toggleWindow: () => toggleVisible(win),
+    toggleVisible: () => visibility.modifierChanged(true),
+    toggleWindow: () => toggleAppVisibility(),
     quitApp: () => app.quit(),
     clearShots: () => {
       if (win && !win.isDestroyed()) win.webContents.send('liuwa:clear-shots');
@@ -152,19 +162,13 @@ function sleep(ms) {
 }
 
 async function hideWindowForCapture() {
-  if (!win || win.isDestroyed() || !win.isVisible()) return false;
-  win.hide();
-  // Give the compositor a beat so the frosted panel is gone before the crosshair.
-  await sleep(160);
-  return true;
+  const snapshot = visibility.beginCapture();
+  if (snapshot.windows.length) await sleep(160);
+  return snapshot;
 }
 
-function restoreWindow(wasVisible) {
-  if (wasVisible && win && !win.isDestroyed()) {
-    win.showInactive();
-    win.setFocusable(false);
-    setClickThrough(win, true);
-  }
+function restoreWindow(snapshot) {
+  visibility.endCapture(snapshot);
 }
 
 async function attachScreenshot({ interactive }) {
@@ -194,8 +198,8 @@ async function attachScreenshot({ interactive }) {
     // Unpackaged builds often report 'not-determined' even when the host app is
     // authorized, so only 'denied' is trusted on its own; the screencapture stderr
     // message is the reliable missing-permission signal.
-    const permissionDenied =
-      raw.includes('could not create image') || screenAccessStatus() === 'denied';
+    const permissionDenied = process.platform === 'darwin' &&
+      (raw.includes('could not create image') || screenAccessStatus() === 'denied');
     if (permissionDenied) {
       if (!permissionPaneOpened) {
         permissionPaneOpened = true;
@@ -274,18 +278,17 @@ function registerIpc() {
     return {...captureOptions(),saved};
   });
   ipcMain.handle('cockpit:openSettings', async (_event, section) => {
+    const version = visibility.version();
     if (!await ensureBackend(config)) {
       dialog.showErrorBox('设置服务未能启动', '请重启应用后重试。服务日志位于应用的 gateway.log 日志文件中。');
       return false;
     }
-    const anchor = ['study', 'models', 'assets'].includes(section) ? `#${section}` : '';
-    await shell.openExternal(`${config.gatewayUrl}/settings${anchor}`);
-    return true;
+    const opened = await openSettingsWindow(config, section, win, () => visibility.canShow(version));
+    if (!opened) dialog.showErrorBox('设置页未能打开', '本地服务未能加载设置页面，请重试。');
+    return opened;
   });
   ipcMain.handle('liuwa:reset-view', () => { if(win && !win.isDestroyed()) win.webContents.send('liuwa:reset-view'); });
-  ipcMain.handle('cockpit:toggleVisible', () => {
-    toggleVisible(win);
-  });
+  ipcMain.handle('cockpit:toggleVisible', () => toggleAppVisibility());
   ipcMain.handle('liuwa:capture', (_event, options) =>
     attachScreenshot({ interactive: typeof options?.interactive === 'boolean' ? options.interactive : config.screenshotMode !== 'full' }),
   );
@@ -337,9 +340,7 @@ async function boot() {
   };
   screen.on('display-removed', handleRemovedDisplay);
   win.on('closed', () => screen.removeListener('display-removed', handleRemovedDisplay));
-  stopCommandKeyMonitor = startCommandKeyMonitor((held) => {
-    setInteractive(win, held, { restore: !held });
-  });
+  stopCommandKeyMonitor = startCommandKeyMonitor(held => visibility.modifierChanged(held));
   refreshUiHotkeys();
   setInterval(refreshUiHotkeys, 4000);
 

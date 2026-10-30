@@ -1,0 +1,60 @@
+.protected-select-menu {
+  position: fixed;
+  z-index: 40;
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border: 1px solid var(--line, #dfe6f3);
+  border-radius: 12px;
+  background: var(--surface, #f9fafb);
+  color: var(--ink, #192545);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 12%);
+  font: inherit;
+  text-align: left;
+  scrollbar-width: thin;
+}
+.protected-select-group {
+  padding: 8px 10px 4px;
+  color: var(--muted, #52617a);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.protected-select-menu .protected-select-option {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  transform: none;
+  transition: none;
+}
+.protected-select-menu .protected-select-option[aria-selected="true"] {
+  font-weight: 600;
+}
+.protected-select-menu .protected-select-option:focus,
+.protected-select-menu .protected-select-option:hover:where(html:not(.liuwa-host) *, body.liuwa-armed *) {
+  outline: none;
+  background: var(--accent-soft, #edf0f5);
+  color: var(--ink, #192545);
+}
+.protected-select-menu .protected-select-option:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+@media (pointer: coarse) {
+  .protected-select-menu .protected-select-option { min-height: 44px; }
+}
