@@ -8,6 +8,7 @@ const DEFAULTS = {
   gatewayUrl: 'http://127.0.0.1:9958',
   gatewayApiKey: '',
   spawnBackend: true,
+  screenshotMode: 'full',
   pythonPath: process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/bin/python',
 };
 

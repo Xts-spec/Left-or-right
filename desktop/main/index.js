@@ -95,7 +95,7 @@ function hotkeyHandlers() {
     moveLeft: () => moveWindow(win, -STEP, 0),
     moveRight: () => moveWindow(win, STEP, 0),
 
-    captureRegion: () => attachScreenshot({ interactive: config.screenshotMode !== 'full' }),
+    captureRegion: () => attachScreenshot({ interactive: config.screenshotMode === 'area' }),
     // 全屏截图不该弹框选十字：screencapture 不带 -i 直接抓当前显示器的完整画面。
     captureScreen: () => attachScreenshot({ interactive: false }),
     sendChat: () => sendChat(),
@@ -234,7 +234,7 @@ function runningDisplay() {
 
 function captureOptions() {
   const displays = screen.getAllDisplays();
-  return {mode:config.screenshotMode || 'area',displayId:String(runningDisplay().id),displays:displays.map((d,i)=>({id:String(d.id),label:d.label || `显示器 ${i+1}`,width:d.bounds.width,height:d.bounds.height,scaleFactor:d.scaleFactor}))};
+  return {mode:config.screenshotMode || 'full',displayId:String(runningDisplay().id),displays:displays.map((d,i)=>({id:String(d.id),label:d.label || `显示器 ${i+1}`,width:d.bounds.width,height:d.bounds.height,scaleFactor:d.scaleFactor}))};
 }
 
 function registerIpc() {
@@ -290,7 +290,7 @@ function registerIpc() {
   ipcMain.handle('liuwa:reset-view', () => { if(win && !win.isDestroyed()) win.webContents.send('liuwa:reset-view'); });
   ipcMain.handle('cockpit:toggleVisible', () => toggleAppVisibility());
   ipcMain.handle('liuwa:capture', (_event, options) =>
-    attachScreenshot({ interactive: typeof options?.interactive === 'boolean' ? options.interactive : config.screenshotMode !== 'full' }),
+    attachScreenshot({ interactive: typeof options?.interactive === 'boolean' ? options.interactive : config.screenshotMode === 'area' }),
   );
   ipcMain.handle('liuwa:send', () => sendChat());
 }

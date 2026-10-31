@@ -1272,7 +1272,7 @@ class UiSettings(BaseModel):
     study_specialty: str = Field(default="计算机 / 软件工程", max_length=120)
     study_language: str = Field(default="Python", max_length=80)
     study_goal: str = Field(default="看懂眼前这段代码或报错", max_length=1000)
-    study_answer_style: Literal["hints", "walkthrough", "solution"] = "walkthrough"
+    study_answer_style: Literal["hints", "walkthrough", "solution"] = "solution"
     study_instructions: str = Field(default="", max_length=2000)
     jd_text: str = ""
     resume_text: str = ""

@@ -37,7 +37,18 @@ from libs.schemas import (
     ReportBuildRequest,
     ScoringRequest,
     TranscriptSegment,
+    UiSettings,
 )
+
+
+def test_new_study_settings_default_to_complete_solution() -> None:
+    assert UiSettings().study_answer_style == "solution"
+
+
+def test_saved_study_style_and_language_are_not_replaced_by_new_defaults() -> None:
+    settings = UiSettings(study_answer_style="hints", study_language="Rust")
+    assert settings.study_answer_style == "hints"
+    assert settings.study_language == "Rust"
 
 
 def test_behavior_signal_forbids_compliance_sensitive_extra_fields() -> None:

@@ -2,7 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderMarkdown } from '../web/modules/markdown.js';
 import { page, readingBox, scrollByScreen } from '../web/modules/reading.js';
-import { renderAnswer } from '../web/modules/answer-view.js';
+import { renderAnswer, stepAnswerTab } from '../web/modules/answer-view.js';
+
+function answerFixture() {
+  const doc={activeElement:null,createElement(){
+    const attributes={};
+    const button={dataset:{},style:{},hidden:false,textContent:'',setAttribute:(name,value)=>{attributes[name]=value;},getAttribute:name=>attributes[name],closest:()=>button,focus(){doc.activeElement=button;},click(){tabs.onclick({target:button});}};
+    return button;
+  }};
+  const tabs={hidden:false,dataset:{},ownerDocument:doc,buttons:[],contains:node=>tabs.buttons.includes(node),replaceChildren(...buttons){this.buttons=buttons;},querySelectorAll:()=>tabs.buttons,querySelector:selector=>tabs.buttons.find(button=>selector.includes(`"${button.dataset.panel}"`))};
+  const root={innerHTML:'',scrollTop:0,dataset:{},ownerDocument:doc,closest:()=>({querySelector:()=>tabs}),setAttribute(){},dispatchEvent(){}};
+  return {root,tabs,button:key=>tabs.buttons.find(button=>button.dataset.panel===key)};
+}
 
 test('an untyped answer opens its answer section while retaining the complete source', () => {
   const root = { innerHTML: '', scrollTop: 120 };
@@ -12,6 +23,61 @@ test('an untyped answer opens its answer section while retaining the complete so
   assert.match(model.full, /先排序。/);
   assert.equal(model.selected, 'answer');
   assert.equal(root.scrollTop, 0);
+});
+
+test('programming streams keep the answer first before and after code arrives',()=>{
+  const root={innerHTML:'',scrollTop:0,dataset:{}};
+  renderAnswer('<!-- li',root);
+  assert.equal(root.innerHTML,'');assert.equal(root.dataset.hasAnswer,'false');
+  renderAnswer('<!-- liuwa:type=programming -->\n## 答案',root);
+  assert.equal(root.innerHTML,'');assert.equal(root.dataset.hasAnswer,'false');
+  const answer='<!-- liuwa:type=programming -->\n## 答案\n使用二分查找。';
+  assert.equal(renderAnswer(answer,root).selected,'answer');
+  const model=renderAnswer(answer+'\n## 代码\n```java\nreturn 42;\n```\n## 解题思路\n缩小区间。',root,{complete:true});
+  assert.equal(model.selected,'answer');assert.match(root.innerHTML,/二分查找/);assert.doesNotMatch(root.innerHTML,/return 42/);
+});
+
+test('existing stream content stays visible until a later answer can take priority',()=>{
+  for(const [type,body,before] of [
+    ['programming','## 代码\n```java\nreturn 42;\n```','code'],
+    ['mixed','## 代码\n```java\nreturn 42;\n```','all'],
+    ['reasoning','## 解题思路\n先分析条件。','thought'],
+  ]) {
+    const root={innerHTML:'',scrollTop:0,dataset:{}};
+    const source=`<!-- liuwa:type=${type} -->\n${body}`;
+    assert.equal(renderAnswer(source,root).selected,before);
+    assert.equal(root.dataset.hasAnswer,'true');assert.notEqual(root.innerHTML,'');
+    assert.equal(renderAnswer(source+'\n## 答案\n结论成立。',root).selected,'answer');
+    assert.match(root.innerHTML,/结论成立/);
+  }
+});
+
+test('code-only history and hints do not wait in a nonexistent answer panel',()=>{
+  const codeRoot={innerHTML:'',scrollTop:0,dataset:{}};
+  const code=renderAnswer('<!-- liuwa:type=programming -->\n## 代码\n```java\nreturn 42;\n```',codeRoot,{complete:true});
+  assert.equal(code.selected,'code');assert.match(codeRoot.innerHTML,/return 42/);
+  const hintRoot={innerHTML:'',scrollTop:0,dataset:{}};
+  const hints=renderAnswer('<!-- liuwa:type=reasoning -->\n## 解题思路\n先找不变量。',hintRoot,{complete:true});
+  assert.equal(hints.selected,'thought');assert.match(hintRoot.innerHTML,/不变量/);assert.ok(!hints.panels.some(p=>p.key==='answer'));
+});
+
+test('manual sections and scroll positions survive later deltas and retain keyboard navigation',()=>{
+  const {root,tabs,button}=answerFixture();
+  const first='<!-- liuwa:type=programming -->\n## 答案\n42\n## 解题思路\n逐步缩小范围。';
+  renderAnswer(first,root);
+  button('thought').click();root.scrollTop=180;
+  const full=first+'\n## 代码\n```java\nreturn 42;\n```';
+  const result=renderAnswer(full,root);
+  assert.equal(result.selected,'thought');assert.equal(root.scrollTop,180);assert.doesNotMatch(root.innerHTML,/return 42/);
+  tabs.onkeydown({target:button('thought'),key:'ArrowLeft',preventDefault(){}});
+  assert.equal(root.dataset.answerPanel,'code');assert.match(root.innerHTML,/return 42/);
+  tabs.onkeydown({target:button('code'),key:'Home',preventDefault(){}});
+  assert.equal(root.dataset.answerPanel,'answer');
+  tabs.onkeydown({target:button('answer'),key:'End',preventDefault(){}});
+  assert.equal(root.dataset.answerPanel,'all');
+  assert.equal(stepAnswerTab(1,root),true);assert.equal(root.dataset.answerPanel,'answer');
+  button('thought').click();assert.equal(root.scrollTop,180);
+  assert.equal(renderAnswer(full,root,{complete:true}).selected,'thought');assert.equal(root.scrollTop,180);
 });
 
 test('math-looking lines inside a code fence stay literal, including while streaming', () => {
