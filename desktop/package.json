@@ -1,7 +1,7 @@
 {
   "author": "haruinia",
   "name": "shuihuo-killer-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "左右：在题目旁边，找到另一种思路。半透明截图学习助手。",
   "main": "main/index.js",
@@ -43,7 +43,8 @@
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "assets/icon.png",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,

@@ -46,6 +46,8 @@ async function openSettingsWindow(config, section, mainWindow, canShow = () => t
   });
   settingsWindow = win;
   win.setContentProtection(true);
+  // Electron 33 on Windows can clear display affinity when this window hides.
+  win.on('show', () => win.setContentProtection(true));
   win.setMenuBarVisibility(false);
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   const base = new URL(config.gatewayUrl);

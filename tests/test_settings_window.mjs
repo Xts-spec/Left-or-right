@@ -17,10 +17,11 @@ function setup({failLoad=false}={}) {
       windows.push(this);
     }
     isDestroyed(){return this.destroyed;}
-    setContentProtection(value){this.calls.push(['protect',value]);}
+    setContentProtection(value){this.protected=value;this.calls.push(['protect',value]);}
     setMenuBarVisibility(value){this.calls.push(['menu',value]);}
     async loadURL(url){this.calls.push(['load',url]);if(failLoad)throw Error('load failed');}
-    show(){this.calls.push(['show']);}
+    hide(){this.protected=false;this.calls.push(['hide']);}
+    show(){this.calls.push(['show']);this.emit('show');}
     focus(){this.calls.push(['focus']);}
     destroy(){this.destroyed=true;this.emit('closed');}
   }
@@ -54,6 +55,21 @@ test('reopening reuses the protected window and navigates without reloading the 
   assert.equal(windows.length,1);
   assert.equal(windows[0].calls.filter(c=>c[0]==='load').length,1);
   assert.deepEqual(windows[0].calls.find(c=>c[0]==='send'),['send','settings:navigate','assets']);
+});
+
+test('showing settings restores capture protection lost on Windows hide',async()=>{
+  const {api,windows}=setup();
+  await api.openSettingsWindow(config,'models',main);
+  const w=windows[0];
+  assert.equal(w.protected,true);
+  // Electron 33 can lose the native display affinity when hiding a window.
+  w.hide();
+  assert.equal(w.protected,false);
+  await api.openSettingsWindow(config,'study',main);
+  assert.equal(w.protected,true);
+  // The visibility shortcut restores windows directly, without reopening settings.
+  w.hide();w.show();
+  assert.equal(w.protected,true);
 });
 
 test('settings navigation stays on trusted settings routes and denies new windows',async()=>{

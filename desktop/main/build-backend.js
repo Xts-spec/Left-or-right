@@ -32,14 +32,19 @@ module.exports = async function buildBackend(context = {}) {
     ? path.join(root, '.venv', 'Scripts', 'python.exe')
     : path.join(root, '.venv', 'bin', 'python');
   const python = process.env.DESKTOP_PYTHON || (fs.existsSync(venv) ? venv : platform === 'win32' ? 'python' : 'python3');
-  const result = spawnSync(python, [path.join(root, 'scripts', 'build_desktop_backend.py'), '--platform', platform, '--arch', targetArch], {
-    cwd: root,
-    stdio: 'inherit',
-    windowsHide: true,
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error('Local service packaging failed; install the desktop Python dependencies first.');
   const binary = path.join(root, 'desktop', 'backend', 'left-or-right-gateway', platform === 'win32' ? 'left-or-right-gateway.exe' : 'left-or-right-gateway');
-  if (!fs.existsSync(binary)) throw new Error('The native local-service executable was not generated.');
+  // 后端可执行文件已存在时跳过 PyInstaller 重打包：避免 --clean 重复删除旧产物（在受限环境下会被批量删除保护拦截）。
+  if (fs.existsSync(binary)) {
+    console.log('Backend executable already present; skipping PyInstaller rebuild.');
+  } else {
+    const result = spawnSync(python, [path.join(root, 'scripts', 'build_desktop_backend.py'), '--platform', platform, '--arch', targetArch], {
+      cwd: root,
+      stdio: 'inherit',
+      windowsHide: true,
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error('Local service packaging failed; install the desktop Python dependencies first.');
+    if (!fs.existsSync(binary)) throw new Error('The native local-service executable was not generated.');
+  }
   if (platform === 'win32') compileWindowsInteraction(root);
 };

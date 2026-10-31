@@ -83,6 +83,9 @@ function createWindow(config, { onMove, onDisplay } = {}) {
   // the same way presenter notes stay off the shared feed. macOS maps this to
   // NSWindowSharingNone; must be set before the window is shown.
   win.setContentProtection(true);
+  // Electron 33 on Windows can clear display affinity on hide. Restore it for
+  // screenshot recovery, visibility shortcuts and all other show paths.
+  win.on('show', () => win.setContentProtection(true));
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.setBackgroundColor('#00000000');
